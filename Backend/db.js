@@ -44,6 +44,12 @@ export async function initDatabase() {
         email VARCHAR(100) NOT NULL UNIQUE,
         role VARCHAR(20) DEFAULT 'Patient',
         contact_no VARCHAR(30),
+        age VARCHAR(10),
+        gender VARCHAR(20),
+        blood_group VARCHAR(10),
+        address TEXT,
+        emergency_contact VARCHAR(30),
+        allergies TEXT,
         auth_provider VARCHAR(30) DEFAULT 'password',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
@@ -99,6 +105,12 @@ export async function initDatabase() {
         email TEXT NOT NULL UNIQUE,
         role TEXT DEFAULT 'Patient',
         contact_no TEXT,
+        age TEXT,
+        gender TEXT,
+        blood_group TEXT,
+        address TEXT,
+        emergency_contact TEXT,
+        allergies TEXT,
         auth_provider TEXT DEFAULT 'password',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
@@ -141,44 +153,73 @@ export async function initDatabase() {
 
 // User Sync API logic
 export async function syncUserToDb(userPayload) {
-  const { name, email, role = 'Patient', contact_no = '', auth_provider = 'google' } = userPayload;
+  const {
+    name, email, role = 'Patient', contact_no = '',
+    age = '', gender = '', blood_group = '', address = '',
+    emergency_contact = '', allergies = '', auth_provider = 'google'
+  } = userPayload;
 
   if (dbMode === 'mysql' && mysqlPool) {
-    // MySQL Upsert logic
     const [existing] = await mysqlPool.query(`SELECT * FROM users WHERE email = ?`, [email]);
     if (existing.length > 0) {
       await mysqlPool.query(
-        `UPDATE users SET name = ?, role = ?, contact_no = ?, auth_provider = ? WHERE email = ?`,
-        [name, role, contact_no, auth_provider, email]
+        `UPDATE users SET name = ?, role = ?, contact_no = ?, age = ?, gender = ?, blood_group = ?, address = ?, emergency_contact = ?, allergies = ?, auth_provider = ? WHERE email = ?`,
+        [name, role, contact_no, age, gender, blood_group, address, emergency_contact, allergies, auth_provider, email]
       );
       const [updated] = await mysqlPool.query(`SELECT * FROM users WHERE email = ?`, [email]);
       return updated[0];
     } else {
       const [result] = await mysqlPool.query(
-        `INSERT INTO users (name, email, role, contact_no, auth_provider) VALUES (?, ?, ?, ?, ?)`,
-        [name, email, role, contact_no, auth_provider]
+        `INSERT INTO users (name, email, role, contact_no, age, gender, blood_group, address, emergency_contact, allergies, auth_provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, email, role, contact_no, age, gender, blood_group, address, emergency_contact, allergies, auth_provider]
       );
       const [inserted] = await mysqlPool.query(`SELECT * FROM users WHERE user_id = ?`, [result.insertId]);
       return inserted[0];
     }
   } else if (sqliteDb) {
-    // SQLite Upsert logic
     const existing = await sqliteDb.get(`SELECT * FROM users WHERE email = ?`, [email]);
     if (existing) {
       await sqliteDb.run(
-        `UPDATE users SET name = ?, role = ?, contact_no = ?, auth_provider = ? WHERE email = ?`,
-        [name, role, contact_no, auth_provider, email]
+        `UPDATE users SET name = ?, role = ?, contact_no = ?, age = ?, gender = ?, blood_group = ?, address = ?, emergency_contact = ?, allergies = ?, auth_provider = ? WHERE email = ?`,
+        [name, role, contact_no, age, gender, blood_group, address, emergency_contact, allergies, auth_provider, email]
       );
       return await sqliteDb.get(`SELECT * FROM users WHERE email = ?`, [email]);
     } else {
       const res = await sqliteDb.run(
-        `INSERT INTO users (name, email, role, contact_no, auth_provider) VALUES (?, ?, ?, ?, ?)`,
-        [name, email, role, contact_no, auth_provider]
+        `INSERT INTO users (name, email, role, contact_no, age, gender, blood_group, address, emergency_contact, allergies, auth_provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, email, role, contact_no, age, gender, blood_group, address, emergency_contact, allergies, auth_provider]
       );
       return await sqliteDb.get(`SELECT * FROM users WHERE user_id = ?`, [res.lastID]);
     }
   }
 }
+
+// Audit Log Persistence
+export async function saveLoginHistoryToDb(logPayload) {
+  const { user_id, user_name, email, role, ip_address, device_info } = logPayload;
+  if (dbMode === 'mysql' && mysqlPool) {
+    await mysqlPool.query(
+      `INSERT INTO login_history (user_id, user_name, email, role, ip_address, device_info) VALUES (?, ?, ?, ?, ?, ?)`,
+      [user_id, user_name, email, role, ip_address, device_info]
+    );
+  } else if (sqliteDb) {
+    await sqliteDb.run(
+      `INSERT INTO login_history (user_id, user_name, email, role, ip_address, device_info) VALUES (?, ?, ?, ?, ?, ?)`,
+      [user_id, user_name, email, role, ip_address, device_info]
+    );
+  }
+}
+
+export async function getAllLoginHistoryFromDb() {
+  if (dbMode === 'mysql' && mysqlPool) {
+    const [rows] = await mysqlPool.query(`SELECT * FROM login_history ORDER BY login_id DESC LIMIT 200`);
+    return rows;
+  } else if (sqliteDb) {
+    return await sqliteDb.all(`SELECT * FROM login_history ORDER BY login_id DESC LIMIT 200`);
+  }
+  return [];
+}
+
 
 // Fetch all users from DB
 export async function getAllUsersFromDb() {

@@ -2,7 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Groq from 'groq-sdk';
-import { initDatabase, syncUserToDb, getAllUsersFromDb, savePredictionToDb, getAllPredictionsFromDb } from './db.js';
+import { initDatabase, syncUserToDb, getAllUsersFromDb, savePredictionToDb, getAllPredictionsFromDb, saveLoginHistoryToDb, getAllLoginHistoryFromDb } from './db.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -180,19 +181,7 @@ Important: urgencyLevel must be one of: "Normal", "Urgent", "Emergency". severit
 // ─────────────────────────────────────────────
 app.post('/api/users/sync', async (req, res) => {
   try {
-    const { name, email, role, contact_no, auth_provider } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email address is required.' });
-    }
-
-    const syncedUser = await syncUserToDb({
-      name: name || email.split('@')[0],
-      email,
-      role: role || 'Patient',
-      contact_no: contact_no || '',
-      auth_provider: auth_provider || 'google'
-    });
-
+    const syncedUser = await syncUserToDb(req.body);
     res.json({
       message: 'User synchronized with database successfully',
       user: syncedUser
@@ -202,6 +191,26 @@ app.post('/api/users/sync', async (req, res) => {
     res.status(500).json({ error: 'Failed to synchronize user with database.' });
   }
 });
+
+// Audit Log endpoints
+app.post('/api/audit-logs', async (req, res) => {
+  try {
+    await saveLoginHistoryToDb(req.body);
+    res.json({ message: 'Login event logged successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save audit log.' });
+  }
+});
+
+app.get('/api/audit-logs', async (req, res) => {
+  try {
+    const logs = await getAllLoginHistoryFromDb();
+    res.json({ count: logs.length, logs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve audit logs.' });
+  }
+});
+
 
 // ─────────────────────────────────────────────
 // Get all users from Database

@@ -21,8 +21,9 @@ export const LoginPage = () => {
   const { loginWithGoogle, sendPhoneOtp, verifyPhoneOtp, loginUser, setActiveTab } = useApp();
 
   const [role, setRole] = useState('Patient');
-  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('+91 ');
   const [otpCode, setOtpCode] = useState('');
+
   const [otpSent, setOtpSent] = useState(false);
   const [otpSuccessMsg, setOtpSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -32,16 +33,26 @@ export const LoginPage = () => {
   const [googleEmailInput, setGoogleEmailInput] = useState('');
   const [googleNameInput, setGoogleNameInput] = useState('');
 
+  const handlePhoneInputChange = (e) => {
+    let val = e.target.value;
+    if (!val.startsWith('+91')) {
+      // Keep +91 prefilled
+      val = '+91 ' + val.replace(/^\+?91\s?/, '');
+    }
+    setPhoneInput(val);
+  };
+
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setOtpSuccessMsg('');
-    if (!phoneInput || phoneInput.length < 10) {
-      setErrorMsg('Please enter a valid phone number with country code (e.g. +91 9876543210)');
+    const rawDigits = phoneInput.replace(/[^0-9]/g, '');
+    if (rawDigits.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number after +91');
       return;
     }
     setIsLoading(true);
-    const formattedPhone = phoneInput.startsWith('+') ? phoneInput : `+91${phoneInput}`;
+    const formattedPhone = phoneInput.trim().startsWith('+') ? phoneInput.trim().replace(/\s+/g, '') : `+91${rawDigits.slice(-10)}`;
     const result = await sendPhoneOtp(formattedPhone);
     setIsLoading(false);
     if (result.success) {
@@ -51,6 +62,7 @@ export const LoginPage = () => {
       setErrorMsg(result.message);
     }
   };
+
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
@@ -285,11 +297,12 @@ export const LoginPage = () => {
                     <input
                       type="tel"
                       value={phoneInput}
-                      onChange={(e) => setPhoneInput(e.target.value)}
+                      onChange={handlePhoneInputChange}
                       placeholder="+91 98765 43210"
                       className={inputClasses}
                       required
                     />
+
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">Include country code (e.g. +91 for India, +1 for US)</p>
                 </div>

@@ -15,7 +15,14 @@ import {
   X,
   Save,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  UserCheck,
+  Smartphone,
+  Globe,
+  Radio,
+  Search,
+  Filter,
+  History
 } from 'lucide-react';
 
 export const AdminDashboard = () => {
@@ -38,7 +45,8 @@ export const AdminDashboard = () => {
     addMedicine,
     updateMedicine,
     deleteMedicine,
-    clearAuditLogs
+    clearAuditLogs,
+    currentUser
   } = useApp();
 
   const [activeAdminSubTab, setActiveAdminSubTab] = useState('users');
@@ -61,8 +69,12 @@ export const AdminDashboard = () => {
   const [editingSymptom, setEditingSymptom] = useState(null);
   const [editingMedicine, setEditingMedicine] = useState(null);
 
+  // Audit Logs Search & Filter States
+  const [auditSearchTerm, setAuditSearchTerm] = useState('');
+  const [auditRoleFilter, setAuditRoleFilter] = useState('ALL');
+
   // Form States for Creating
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: 'Password123!', contact_no: '', role: 'Patient' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: 'Password123!', contact_no: '', role: 'Patient', age: '', gender: 'Male', blood_group: 'A+' });
   const [newDisease, setNewDisease] = useState({ disease_name: '', category: 'General', severity_level: 'Moderate', description: '', precautions: '', recommended_specialist: 'General Physician' });
   const [newSymptom, setNewSymptom] = useState({ symptom_name: '', category: 'General', body_part: 'Whole Body', description: '' });
   const [newMed, setNewMed] = useState({ medicine_name: '', type: 'Tablet', description: '', default_dosage: '1 Tablet twice daily', default_duration: '5 Days' });
@@ -74,13 +86,48 @@ export const AdminDashboard = () => {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
+  // Helper: Find latest real-time login session for a user
+  const getLatestLogin = (user) => {
+    if (!user) return null;
+    return loginHistory.find(l =>
+      l.user_id === user.user_id ||
+      l.email?.toLowerCase() === user.email?.toLowerCase()
+    );
+  };
+
+  // Helper: Check if user is currently online in real time
+  const isUserOnline = (user) => {
+    if (!user) return false;
+    if (currentUser && (currentUser.user_id === user.user_id || currentUser.email?.toLowerCase() === user.email?.toLowerCase())) {
+      return true;
+    }
+    const latest = getLatestLogin(user);
+    if (!latest) return false;
+    const loginTime = new Date(latest.login_time).getTime();
+    const now = new Date().getTime();
+    return (now - loginTime) < (15 * 60 * 1000); // Online if logged in within 15 min
+  };
+
+  // Filtered Audit Logs
+  const filteredAuditLogs = loginHistory.filter(log => {
+    const matchesSearch =
+      (log.user_name || '').toLowerCase().includes(auditSearchTerm.toLowerCase()) ||
+      (log.email || '').toLowerCase().includes(auditSearchTerm.toLowerCase()) ||
+      (log.ip_address || '').toLowerCase().includes(auditSearchTerm.toLowerCase()) ||
+      (log.device_info || '').toLowerCase().includes(auditSearchTerm.toLowerCase());
+    
+    const matchesRole = auditRoleFilter === 'ALL' || log.role === auditRoleFilter;
+
+    return matchesSearch && matchesRole;
+  });
+
   // Handlers for Add
   const handleAddUserSubmit = (e) => {
     e.preventDefault();
     addUser(newUser);
     setShowAddUser(false);
-    setNewUser({ name: '', email: '', password: 'Password123!', contact_no: '', role: 'Patient' });
-    showToast('User created successfully!');
+    setNewUser({ name: '', email: '', password: 'Password123!', contact_no: '', role: 'Patient', age: '', gender: 'Male', blood_group: 'A+' });
+    showToast('User account created successfully!');
   };
 
   const handleAddDiseaseSubmit = (e) => {
@@ -112,7 +159,7 @@ export const AdminDashboard = () => {
     e.preventDefault();
     updateUser(editingUser);
     setEditingUser(null);
-    showToast('User profile updated!');
+    showToast(`Updated full profile for ${editingUser.name}!`);
   };
 
   const handleUpdateDiseaseSubmit = (e) => {
@@ -164,26 +211,29 @@ export const AdminDashboard = () => {
               System Administration Suite
             </h1>
             <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-              Full control to create, modify, or delete user accounts, diseases, symptoms, medicine inventory, and system audit logs.
+              Real-time user session monitoring, past login history tracking, full user profile editing, and disease-symptom mapping matrix.
             </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center min-w-[90px]">
               <p className="text-xl font-extrabold text-white">{users.length}</p>
-              <p className="text-[10px] text-slate-400">Users</p>
+              <p className="text-[10px] text-slate-400">Total Users</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center min-w-[90px]">
+              <p className="text-xl font-extrabold text-emerald-400 flex items-center justify-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                {users.filter(u => isUserOnline(u)).length}
+              </p>
+              <p className="text-[10px] text-slate-400">Live Online</p>
             </div>
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center min-w-[90px]">
               <p className="text-xl font-extrabold text-indigo-400">{diseases.length}</p>
               <p className="text-[10px] text-slate-400">Diseases</p>
             </div>
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center min-w-[90px]">
-              <p className="text-xl font-extrabold text-violet-400">{symptoms.length}</p>
-              <p className="text-[10px] text-slate-400">Symptoms</p>
-            </div>
-            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center min-w-[90px]">
               <p className="text-xl font-extrabold text-rose-400">{loginHistory.length}</p>
-              <p className="text-[10px] text-slate-400">Audit Logs</p>
+              <p className="text-[10px] text-slate-400">Past & Live Logins</p>
             </div>
           </div>
         </div>
@@ -192,11 +242,11 @@ export const AdminDashboard = () => {
       {/* Admin Sub-Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-white/[0.06] pb-4 overflow-x-auto">
         {[
-          { id: 'users', label: `Users (${users.length})`, icon: Users },
+          { id: 'users', label: `Users & Profiles (${users.length})`, icon: Users },
           { id: 'diseases', label: `Diseases (${diseases.length})`, icon: Database },
           { id: 'symptoms', label: `Symptoms (${symptoms.length})`, icon: Activity },
           { id: 'medicines', label: `Medicines (${medicines.length})`, icon: Pill },
-          { id: 'audit', label: `Audit Logs (${loginHistory.length})`, icon: Clock }
+          { id: 'audit', label: `Login Audit History (${loginHistory.length})`, icon: History }
         ].map(t => {
           const Icon = t.icon;
           const isActive = activeAdminSubTab === t.id;
@@ -218,20 +268,22 @@ export const AdminDashboard = () => {
       <PageTransition tabKey={activeAdminSubTab}>
 
         {/* ══════════════════════════════════════════
-           TAB 1: USER MANAGEMENT (Full CRUD)
+           TAB 1: USER MANAGEMENT & FULL PROFILE EDITING
            ══════════════════════════════════════════ */}
         {activeAdminSubTab === 'users' && (
           <div className="glass-panel p-6 rounded-3xl border border-white/[0.06] space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-white">Registered User Accounts</h3>
-                <p className="text-xs text-slate-400">Modify user roles, names, contact numbers, or delete accounts</p>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-indigo-400" /> User Accounts & Profile Control
+                </h3>
+                <p className="text-xs text-slate-400">View real-time login statuses and edit full user profile details</p>
               </div>
               <button
                 onClick={() => setShowAddUser(true)}
                 className="px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-indigo-500/20 cursor-pointer shrink-0"
               >
-                <Plus className="w-4 h-4" /> Add User Record
+                <Plus className="w-4 h-4" /> Add User Account
               </button>
             </div>
 
@@ -239,64 +291,117 @@ export const AdminDashboard = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-white/[0.04] text-slate-400 font-semibold border-b border-white/[0.06]">
                   <tr>
-                    <th className="p-3">User ID</th>
-                    <th className="p-3">Full Name</th>
-                    <th className="p-3">Email Address</th>
+                    <th className="p-3">Live Status</th>
+                    <th className="p-3">User & Email</th>
+                    <th className="p-3">Profile Info</th>
                     <th className="p-3">Contact</th>
                     <th className="p-3">Role (RBAC)</th>
-                    <th className="p-3">Auth Provider</th>
+                    <th className="p-3">Latest Login Session</th>
                     <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {users.map(u => (
-                    <tr key={u.user_id} className="hover:bg-slate-900/40">
-                      <td className="p-3 font-mono text-indigo-400 font-bold">#{u.user_id}</td>
-                      <td className="p-3 font-semibold text-white">{u.name}</td>
-                      <td className="p-3 text-slate-300">{u.email}</td>
-                      <td className="p-3 text-slate-400">{u.contact_no || u.phone || '—'}</td>
-                      <td className="p-3">
-                        <select
-                          value={u.role}
-                          onChange={e => {
-                            updateUser({ ...u, role: e.target.value });
-                            showToast(`Updated ${u.name}'s role to ${e.target.value}`);
-                          }}
-                          className={`px-2 py-1 rounded-md text-[11px] font-bold border bg-slate-900 cursor-pointer ${
-                            u.role === 'Admin' ? 'text-rose-400 border-rose-500/40' :
-                            u.role === 'Doctor' ? 'text-violet-400 border-violet-500/40' :
-                            'text-indigo-400 border-indigo-500/40'
-                          }`}
-                        >
-                          <option value="Patient" className="bg-slate-900 text-indigo-400">Patient</option>
-                          <option value="Doctor" className="bg-slate-900 text-violet-400">Doctor</option>
-                          <option value="Admin" className="bg-slate-900 text-rose-400">Admin</option>
-                        </select>
-                      </td>
-                      <td className="p-3 text-slate-400 font-mono text-[11px]">{u.auth_provider || 'password'}</td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setEditingUser(u)}
-                            className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/10 border border-transparent hover:border-indigo-500/20 cursor-pointer"
-                            title="Edit User"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              deleteUser(u.user_id);
-                              showToast(`Deleted user #${u.user_id}`);
+                  {users.map(u => {
+                    const online = isUserOnline(u);
+                    const latest = getLatestLogin(u);
+                    return (
+                      <tr key={u.user_id} className="hover:bg-slate-900/40 transition-colors">
+                        
+                        {/* Live Real-Time Status */}
+                        <td className="p-3">
+                          {online ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold animate-pulse">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400" /> Online Now
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 text-slate-500 text-[10px] font-medium border border-white/[0.04]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-600" /> Offline
+                            </span>
+                          )}
+                        </td>
+
+                        {/* User & Email */}
+                        <td className="p-3">
+                          <p className="font-bold text-white text-xs">{u.name}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">{u.email}</p>
+                          <span className="text-[9px] font-mono text-indigo-400">ID: #{u.user_id}</span>
+                        </td>
+
+                        {/* Profile Info */}
+                        <td className="p-3 text-slate-300 space-y-0.5">
+                          <p className="text-[11px]">
+                            {u.age ? `${u.age} yrs` : 'Age N/A'}, {u.gender || 'N/A'}
+                          </p>
+                          {u.blood_group && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 font-bold">
+                              Blood: {u.blood_group}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Contact */}
+                        <td className="p-3 text-slate-400 font-mono text-[11px]">
+                          {u.contact_no || u.phone || '—'}
+                        </td>
+
+                        {/* Role Selector */}
+                        <td className="p-3">
+                          <select
+                            value={u.role}
+                            onChange={e => {
+                              updateUser({ ...u, role: e.target.value });
+                              showToast(`Updated ${u.name}'s role to ${e.target.value}`);
                             }}
-                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 cursor-pointer"
-                            title="Delete User"
+                            className={`px-2 py-1 rounded-md text-[11px] font-bold border bg-slate-900 cursor-pointer ${
+                              u.role === 'Admin' ? 'text-rose-400 border-rose-500/40' :
+                              u.role === 'Doctor' ? 'text-violet-400 border-violet-500/40' :
+                              'text-indigo-400 border-indigo-500/40'
+                            }`}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <option value="Patient" className="bg-slate-900 text-indigo-400">Patient</option>
+                            <option value="Doctor" className="bg-slate-900 text-violet-400">Doctor</option>
+                            <option value="Admin" className="bg-slate-900 text-rose-400">Admin</option>
+                          </select>
+                        </td>
+
+                        {/* Real-time Login Session */}
+                        <td className="p-3 text-slate-400 font-mono text-[10px]">
+                          {latest ? (
+                            <div>
+                              <p className="text-slate-200 font-semibold">{new Date(latest.login_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                              <p className="text-slate-500">{latest.device_info || 'Firebase Web Auth'} ({latest.ip_address})</p>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600 italic">No session recorded</span>
+                          )}
+                        </td>
+
+                        {/* Action Buttons */}
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setEditingUser(u)}
+                              className="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                              title="Edit Full Profile"
+                            >
+                              <Edit className="w-3.5 h-3.5" /> Edit Profile
+                            </button>
+                            <button
+                              onClick={() => {
+                                deleteUser(u.user_id);
+                                showToast(`Deleted user #${u.user_id}`);
+                              }}
+                              className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 cursor-pointer"
+                              title="Delete Account"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -335,21 +440,10 @@ export const AdminDashboard = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setEditingDisease(d)}
-                        className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
-                        title="Edit Disease"
-                      >
+                      <button onClick={() => setEditingDisease(d)} className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/10 cursor-pointer" title="Edit Disease">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => {
-                          deleteDisease(d.disease_id);
-                          showToast(`Deleted disease: ${d.disease_name}`);
-                        }}
-                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 cursor-pointer"
-                        title="Delete Disease"
-                      >
+                      <button onClick={() => { deleteDisease(d.disease_id); showToast(`Deleted disease: ${d.disease_name}`); }} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 cursor-pointer" title="Delete Disease">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -411,21 +505,10 @@ export const AdminDashboard = () => {
                       <td className="p-3 text-slate-400 max-w-xs truncate">{s.description}</td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setEditingSymptom(s)}
-                            className="p-1 text-indigo-400 hover:bg-indigo-500/10 rounded cursor-pointer"
-                            title="Edit Symptom"
-                          >
+                          <button onClick={() => setEditingSymptom(s)} className="p-1 text-indigo-400 hover:bg-indigo-500/10 rounded cursor-pointer" title="Edit Symptom">
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => {
-                              deleteSymptom(s.symptom_id);
-                              showToast(`Deleted symptom #${s.symptom_id}`);
-                            }}
-                            className="p-1 text-rose-400 hover:bg-rose-500/10 rounded cursor-pointer"
-                            title="Delete Symptom"
-                          >
+                          <button onClick={() => { deleteSymptom(s.symptom_id); showToast(`Deleted symptom #${s.symptom_id}`); }} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded cursor-pointer" title="Delete Symptom">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -465,21 +548,10 @@ export const AdminDashboard = () => {
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-violet-300">{m.type}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setEditingMedicine(m)}
-                        className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
-                        title="Edit Medicine"
-                      >
+                      <button onClick={() => setEditingMedicine(m)} className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/10 cursor-pointer" title="Edit Medicine">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => {
-                          deleteMedicine(m.medicine_id);
-                          showToast(`Deleted medicine: ${m.medicine_name}`);
-                        }}
-                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 cursor-pointer"
-                        title="Delete Medicine"
-                      >
+                      <button onClick={() => { deleteMedicine(m.medicine_id); showToast(`Deleted medicine: ${m.medicine_name}`); }} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 cursor-pointer" title="Delete Medicine">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -496,59 +568,129 @@ export const AdminDashboard = () => {
         )}
 
         {/* ══════════════════════════════════════════
-           TAB 5: AUDIT LOGS (Full CRUD)
+           TAB 5: REAL-TIME & PAST LOGIN AUDIT HISTORY
            ══════════════════════════════════════════ */}
         {activeAdminSubTab === 'audit' && (
-          <div className="glass-panel p-6 rounded-3xl border border-white/[0.06] space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="glass-panel p-6 rounded-3xl border border-white/[0.06] space-y-5">
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-violet-400" /> Database Real-Time Audit Logs
+                  <History className="w-5 h-5 text-indigo-400" /> Complete Past & Live Login Audit Trail
                 </h3>
-                <p className="text-xs text-slate-400">Inspect or clear user session audit records</p>
+                <p className="text-xs text-slate-400">Chronological history of all login sessions, authentication protocols, and IP addresses</p>
               </div>
-              {loginHistory.length > 0 && (
-                <button
-                  onClick={() => {
-                    clearAuditLogs();
-                    showToast('Audit logs cleared.');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" /> Clear Audit Logs
-                </button>
-              )}
+
+              <div className="flex items-center gap-2 shrink-0">
+                {loginHistory.length > 0 && (
+                  <button
+                    onClick={() => {
+                      clearAuditLogs();
+                      showToast('Audit history cleared.');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" /> Clear Audit Logs
+                  </button>
+                )}
+              </div>
             </div>
 
+            {/* Filter & Search Toolbar */}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              
+              {/* Search Bar */}
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={auditSearchTerm}
+                  onChange={e => setAuditSearchTerm(e.target.value)}
+                  placeholder="Search by user name, email, IP address, or device..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500 transition-all"
+                />
+                {auditSearchTerm && (
+                  <button onClick={() => setAuditSearchTerm('')} className="absolute right-3 top-3 text-slate-500 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Role Filter Buttons */}
+              <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto shrink-0">
+                <span className="text-slate-400 text-xs font-semibold flex items-center gap-1 mr-1">
+                  <Filter className="w-3.5 h-3.5" /> Filter:
+                </span>
+                {['ALL', 'Patient', 'Doctor', 'Admin'].map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setAuditRoleFilter(r)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      auditRoleFilter === r ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/20' : 'bg-slate-800 text-slate-400 hover:text-white border border-white/[0.04]'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+            </div>
+
+            {/* Table of Historical Logins */}
             <div className="overflow-x-auto rounded-2xl border border-white/[0.06]">
               <table className="w-full text-left text-xs">
                 <thead className="bg-white/[0.04] text-slate-400 font-semibold border-b border-white/[0.06]">
                   <tr>
-                    <th className="p-3">Login ID</th>
-                    <th className="p-3">User Name</th>
-                    <th className="p-3">Email Address</th>
+                    <th className="p-3">Session ID</th>
+                    <th className="p-3">User & Email</th>
                     <th className="p-3">Role</th>
-                    <th className="p-3">Timestamp</th>
-                    <th className="p-3">IP / Session</th>
+                    <th className="p-3">Exact Date & Time</th>
+                    <th className="p-3">IP Address</th>
+                    <th className="p-3">Auth Provider / Device Info</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {loginHistory.map(log => (
-                    <tr key={log.login_id} className="hover:bg-slate-900/40">
-                      <td className="p-3 font-mono text-indigo-400">#{log.login_id}</td>
-                      <td className="p-3 font-semibold text-white">{log.user_name}</td>
-                      <td className="p-3 text-slate-300">{log.email}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          log.role === 'Admin' ? 'bg-rose-500/20 text-rose-300' : 'bg-indigo-500/20 text-indigo-300'
-                        }`}>
-                          {log.role}
-                        </span>
+                  {filteredAuditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                        No login records matching query.
                       </td>
-                      <td className="p-3 text-slate-300 font-mono">{new Date(log.login_time).toLocaleString()}</td>
-                      <td className="p-3 text-slate-400 font-mono">{log.ip_address}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredAuditLogs.map(log => (
+                      <tr key={log.login_id} className="hover:bg-slate-900/40 transition-colors">
+                        <td className="p-3 font-mono text-indigo-400 font-bold">#{log.login_id}</td>
+                        <td className="p-3">
+                          <p className="font-semibold text-white">{log.user_name}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">{log.email}</p>
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            log.role === 'Admin' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                            log.role === 'Doctor' ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' :
+                            'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                          }`}>
+                            {log.role}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-200 font-mono">
+                          {new Date(log.login_time).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                          })}
+                        </td>
+                        <td className="p-3 text-slate-300 font-mono">{log.ip_address || '127.0.0.1'}</td>
+                        <td className="p-3 text-slate-400 font-mono text-[11px]">
+                          <span className="text-slate-300 font-semibold block">{log.device_info || 'Firebase Auth Protocol'}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -577,8 +719,28 @@ export const AdminDashboard = () => {
                 <input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" required />
               </div>
               <div>
-                <label className="block text-slate-300 mb-1">Contact Number</label>
+                <label className="block text-slate-300 mb-1">Contact Phone</label>
                 <input type="tel" value={newUser.contact_no} onChange={e => setNewUser({ ...newUser, contact_no: e.target.value })} placeholder="+91 98765 43210" className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-slate-300 mb-1">Age</label>
+                  <input type="number" value={newUser.age} onChange={e => setNewUser({ ...newUser, age: e.target.value })} placeholder="25" className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1">Gender</label>
+                  <select value={newUser.gender} onChange={e => setNewUser({ ...newUser, gender: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1">Blood Group</label>
+                  <select value={newUser.blood_group} onChange={e => setNewUser({ ...newUser, blood_group: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-slate-300 mb-1">Role (RBAC)</label>
@@ -590,7 +752,7 @@ export const AdminDashboard = () => {
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowAddUser(false)} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 cursor-pointer">Cancel</button>
-                <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-500 text-slate-950 font-bold cursor-pointer">Save User</button>
+                <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-500 text-slate-950 font-bold cursor-pointer">Save Account</button>
               </div>
             </form>
           </div>
@@ -710,42 +872,96 @@ export const AdminDashboard = () => {
       )}
 
       {/* ══════════════════════════════════════════
-         MODALS: EDIT FORMS
+         MODALS: FULL EDIT USER PROFILE MODAL
          ══════════════════════════════════════════ */}
-
-      {/* Edit User Modal */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0a0a1a]/85 backdrop-blur-md">
-          <div className="glass-panel w-full max-w-md p-6 rounded-3xl border border-white/[0.08] space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">Edit User Record #{editingUser.user_id}</h3>
-              <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0a0a1a]/85 backdrop-blur-md overflow-y-auto">
+          <div className="glass-panel w-full max-w-lg p-6 sm:p-7 rounded-3xl border border-indigo-500/30 space-y-5 shadow-2xl my-auto animate-modal-content max-h-[92vh] flex flex-col">
+            <div className="flex justify-between items-center border-b border-white/[0.06] pb-4 shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-indigo-400" /> Edit Full User Profile #{editingUser.user_id}
+                </h3>
+                <p className="text-xs text-slate-400">Modify profile parameters, contact information, and RBAC permissions</p>
+              </div>
+              <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-white p-1 cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleUpdateUserSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-300 mb-1">Full Name</label>
-                <input type="text" value={editingUser.name || ''} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" required />
+
+            <form onSubmit={handleUpdateUserSubmit} className="space-y-4 text-xs overflow-y-auto flex-1 pr-1">
+              
+              {/* Full Name & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Full Name</label>
+                  <input type="text" value={editingUser.name || ''} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" required />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Email Address</label>
+                  <input type="email" value={editingUser.email || ''} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" required />
+                </div>
               </div>
-              <div>
-                <label className="block text-slate-300 mb-1">Email Address</label>
-                <input type="email" value={editingUser.email || ''} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" required />
+
+              {/* Phone & Role */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Contact Phone Number</label>
+                  <input type="tel" value={editingUser.contact_no || editingUser.phone || ''} onChange={e => setEditingUser({ ...editingUser, contact_no: e.target.value, phone: e.target.value })} placeholder="+91 98765 43210" className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Role (RBAC Permission)</label>
+                  <select value={editingUser.role || 'Patient'} onChange={e => setEditingUser({ ...editingUser, role: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+                    <option value="Patient">Patient</option>
+                    <option value="Doctor">Doctor</option>
+                    <option value="Admin">Admin</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-slate-300 mb-1">Contact Phone</label>
-                <input type="tel" value={editingUser.contact_no || editingUser.phone || ''} onChange={e => setEditingUser({ ...editingUser, contact_no: e.target.value, phone: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+
+              {/* Demographics: Age, Gender, Blood Group */}
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+                <div>
+                  <label className="block text-slate-400 text-[11px] mb-1 font-medium">Age</label>
+                  <input type="number" value={editingUser.age || ''} onChange={e => setEditingUser({ ...editingUser, age: e.target.value })} placeholder="25" className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-[11px] mb-1 font-medium">Gender</label>
+                  <select value={editingUser.gender || 'Male'} onChange={e => setEditingUser({ ...editingUser, gender: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-[11px] mb-1 font-medium">Blood Group</label>
+                  <select value={editingUser.blood_group || 'A+'} onChange={e => setEditingUser({ ...editingUser, blood_group: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                  </select>
+                </div>
               </div>
+
+              {/* Residential Address */}
               <div>
-                <label className="block text-slate-300 mb-1">Role (RBAC)</label>
-                <select value={editingUser.role || 'Patient'} onChange={e => setEditingUser({ ...editingUser, role: e.target.value })} className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
-                  <option value="Patient">Patient</option>
-                  <option value="Doctor">Doctor</option>
-                  <option value="Admin">Admin</option>
-                </select>
+                <label className="block text-slate-300 mb-1 font-semibold">Residential Address</label>
+                <input type="text" value={editingUser.address || ''} onChange={e => setEditingUser({ ...editingUser, address: e.target.value })} placeholder="123 Health Street, City" className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              {/* Emergency Contact & Allergies */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Emergency Contact Phone</label>
+                  <input type="tel" value={editingUser.emergency_contact || ''} onChange={e => setEditingUser({ ...editingUser, emergency_contact: e.target.value })} placeholder="+91 99999 88888" className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Chronic Conditions / Allergies</label>
+                  <input type="text" value={editingUser.chronic_conditions || editingUser.allergies || ''} onChange={e => setEditingUser({ ...editingUser, chronic_conditions: e.target.value, allergies: e.target.value })} placeholder="Penicillin allergy, Asthma" className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white" />
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-white/[0.06] shrink-0">
                 <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 cursor-pointer">Cancel</button>
-                <button type="submit" className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
-                  <Save className="w-4 h-4" /> Save Changes
+                <button type="submit" className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-slate-950 font-extrabold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-500/20">
+                  <Save className="w-4 h-4" /> Save User Profile
                 </button>
               </div>
             </form>

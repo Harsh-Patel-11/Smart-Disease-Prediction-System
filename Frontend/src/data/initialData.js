@@ -257,7 +257,13 @@ export const INITIAL_DIAGNOSIS_REPORTS = [
 ];
 
 export const INITIAL_LOGIN_HISTORY = [
-  { login_id: 1001, user_id: 1, user_name: "Dr. Rajesh Sharma", email: "admin@sdps.health", role: "Admin", login_time: "2026-08-10T08:12:00Z", ip_address: "192.168.1.45", device_info: "Chrome 127.0 (Windows 11)" },
+  { login_id: 1008, user_id: 1, user_name: "Harsh Patel (System Administrator)", email: "hkpatel7874@gmail.com", role: "Admin", login_time: "2026-08-11T19:10:00Z", ip_address: "127.0.0.1 (LocalHost)", device_info: "Chrome 128.0 (Windows 11) - Admin Session" },
+  { login_id: 1007, user_id: 1, user_name: "Harsh Patel", email: "hkpatel7874@gmail.com", role: "Patient", login_time: "2026-08-11T18:45:00Z", ip_address: "127.0.0.1 (LocalHost)", device_info: "Firebase API Google Provider" },
+  { login_id: 1006, user_id: 2, user_name: "Ananya Patel", email: "ananya.patient@example.com", role: "Patient", login_time: "2026-08-11T14:30:00Z", ip_address: "192.168.1.88", device_info: "Safari Mobile (iOS 17.5)" },
+  { login_id: 1005, user_id: 4, user_name: "Dr. Vikram Seth", email: "doctor@sdps.health", role: "Doctor", login_time: "2026-08-11T09:15:00Z", ip_address: "192.168.1.12", device_info: "Chrome 127.0 (Windows 11)" },
+  { login_id: 1004, user_id: 3, user_name: "Rohan Verma", email: "rohan.patient@example.com", role: "Patient", login_time: "2026-08-10T16:50:00Z", ip_address: "192.168.1.102", device_info: "Chrome Mobile (Android 14)" },
+  { login_id: 1003, user_id: 1, user_name: "Harsh Patel (System Administrator)", email: "hkpatel7874@gmail.com", role: "Admin", login_time: "2026-08-10T14:20:00Z", ip_address: "127.0.0.1", device_info: "Firebase Auth Google OAuth" },
   { login_id: 1002, user_id: 2, user_name: "Ananya Patel", email: "ananya.patient@example.com", role: "Patient", login_time: "2026-08-10T11:05:00Z", ip_address: "192.168.1.88", device_info: "Edge 126.0 (Windows 11)" },
-  { login_id: 1003, user_id: 4, user_name: "Dr. Vikram Seth", email: "doctor@sdps.health", role: "Doctor", login_time: "2026-08-10T14:20:00Z", ip_address: "192.168.1.12", device_info: "Firefox 128.0 (Windows 11)" }
+  { login_id: 1001, user_id: 4, user_name: "Dr. Vikram Seth", email: "doctor@sdps.health", role: "Doctor", login_time: "2026-08-09T08:12:00Z", ip_address: "192.168.1.45", device_info: "Firefox 128.0 (Windows 11)" }
 ];
+

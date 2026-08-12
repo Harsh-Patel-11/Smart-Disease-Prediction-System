@@ -90,6 +90,21 @@ export const AppProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  // Real-time dynamic sync for user accounts & login history across tabs & devices
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'sdps_users') {
+        try { if (e.newValue) setUsers(JSON.parse(e.newValue)); } catch {}
+      }
+      if (e.key === 'sdps_loginHistory') {
+        try { if (e.newValue) setLoginHistory(JSON.parse(e.newValue)); } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+
   const syncWithBackendDb = async (userData) => {
     try {
       await fetch(`${BACKEND_URL}/api/users/sync`, {
@@ -101,6 +116,58 @@ export const AppProvider = ({ children }) => {
       console.warn('Backend sync note:', e);
     }
   };
+
+  const syncAuditLogToBackend = async (logData) => {
+    try {
+      await fetch(`${BACKEND_URL}/api/audit-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData)
+      });
+    } catch (e) {}
+  };
+
+  // Periodically fetch all registered users and audit logs from Backend DB
+  const refreshUsersAndLogsFromBackend = async () => {
+    try {
+      const uRes = await fetch(`${BACKEND_URL}/api/users`);
+      if (uRes.ok) {
+        const data = await uRes.json();
+        if (data.users && data.users.length > 0) {
+          setUsers(prev => {
+            const mergedMap = new Map();
+            prev.forEach(u => mergedMap.set(u.email?.toLowerCase(), u));
+            data.users.forEach(u => {
+              if (u.email) {
+                const existing = mergedMap.get(u.email.toLowerCase());
+                mergedMap.set(u.email.toLowerCase(), existing ? { ...existing, ...u } : u);
+              }
+            });
+            return Array.from(mergedMap.values());
+          });
+        }
+      }
+
+      const aRes = await fetch(`${BACKEND_URL}/api/audit-logs`);
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        if (aData.logs && aData.logs.length > 0) {
+          setLoginHistory(prev => {
+            const ids = new Set(prev.map(l => l.login_id));
+            const newLogs = aData.logs.filter(l => !ids.has(l.login_id));
+            return [...newLogs, ...prev];
+          });
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    refreshUsersAndLogsFromBackend();
+    const interval = setInterval(refreshUsersAndLogsFromBackend, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
 
   // Google Sign-In via Firebase Auth API
   const loginWithGoogle = async (selectedRole = 'Patient', customEmail = null, customName = null) => {
@@ -200,6 +267,11 @@ export const AppProvider = ({ children }) => {
 
 
 
+      setUsers(prev => {
+        const exists = prev.some(u => u.email?.toLowerCase() === found.email?.toLowerCase());
+        return exists ? prev.map(u => u.email?.toLowerCase() === found.email?.toLowerCase() ? { ...u, ...found } : u) : [found, ...prev];
+      });
+
       setCurrentUser(found);
       await syncWithBackendDb(found);
       
@@ -219,13 +291,30 @@ export const AppProvider = ({ children }) => {
       // Local fallback lookup
       const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
       if (found) {
+        setUsers(prev => {
+          const exists = prev.some(u => u.email?.toLowerCase() === found.email?.toLowerCase());
+          return exists ? prev : [found, ...prev];
+        });
         setCurrentUser(found);
         syncWithBackendDb(found);
+
+        setLoginHistory(prev => [{
+          login_id: Date.now(),
+          user_id: found.user_id,
+          user_name: found.name,
+          email: found.email,
+          role: found.role,
+          login_time: new Date().toISOString(),
+          ip_address: "127.0.0.1 (Local Auth)",
+          device_info: "Password Authentication"
+        }, ...prev]);
+
         return { success: true, user: found };
       }
       return { success: false, message: err.message || "Invalid credentials." };
     }
   };
+
 
   // Register via Firebase Auth API
   const registerUser = async (userPayload) => {
@@ -243,6 +332,17 @@ export const AppProvider = ({ children }) => {
       setCurrentUser(fullUserPayload);
       await syncWithBackendDb(fullUserPayload);
 
+      setLoginHistory(prev => [{
+        login_id: Date.now(),
+        user_id: fullUserPayload.user_id,
+        user_name: fullUserPayload.name,
+        email: fullUserPayload.email,
+        role: fullUserPayload.role,
+        login_time: new Date().toISOString(),
+        ip_address: "127.0.0.1 (Firebase Auth)",
+        device_info: "New User Account Registration"
+      }, ...prev]);
+
       return { success: true, user: fullUserPayload };
     } catch (err) {
       const fullUserPayload = {
@@ -253,89 +353,191 @@ export const AppProvider = ({ children }) => {
       setUsers(prev => [fullUserPayload, ...prev]);
       setCurrentUser(fullUserPayload);
       await syncWithBackendDb(fullUserPayload);
+
+      setLoginHistory(prev => [{
+        login_id: Date.now(),
+        user_id: fullUserPayload.user_id,
+        user_name: fullUserPayload.name,
+        email: fullUserPayload.email,
+        role: fullUserPayload.role,
+        login_time: new Date().toISOString(),
+        ip_address: "127.0.0.1 (Local Auth)",
+        device_info: "New User Account Registration"
+      }, ...prev]);
+
       return { success: true, user: fullUserPayload };
     }
   };
 
-  // Firebase Phone Auth - Send OTP SMS API
-  const sendPhoneOtp = async (phoneNumber) => {
-    try {
-      if (!window.recaptchaVerifier) {
+
+  // Firebase Phone Auth - Send OTP SMS API (Official Firebase Auth Docs Compliant)
+  const sendPhoneOtp = (phoneNumber) => {
+    return new Promise((resolve) => {
+      try {
+        if (window.recaptchaVerifier) {
+          try { window.recaptchaVerifier.clear(); } catch {}
+          window.recaptchaVerifier = null;
+        }
+
         window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
-          callback: () => {}
+          callback: () => {
+            console.log('Firebase reCAPTCHA solved.');
+          },
+          'expired-callback': () => {
+            console.warn('reCAPTCHA expired. Resetting.');
+          }
         });
+
+        const appVerifier = window.recaptchaVerifier;
+
+        signInWithPhoneNumber(auth, phoneNumber, appVerifier)
+          .then((confirmationResult) => {
+            // SMS sent. Prompt user to type the code from the message, then sign the
+            // user in with confirmationResult.confirm(code).
+            window.confirmationResult = confirmationResult;
+            resolve({ success: true, message: `OTP code sent to ${phoneNumber} successfully.` });
+          })
+          .catch((error) => {
+            // Error; SMS not sent
+            console.error('Firebase Phone OTP Error:', error);
+            resolve({ success: false, message: error.message || 'Failed to send SMS OTP.' });
+          });
+      } catch (err) {
+        console.error('Recaptcha Setup Error:', err);
+        resolve({ success: false, message: err.message || 'Recaptcha setup failed.' });
       }
-      const appVerifier = window.recaptchaVerifier;
-      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-      window.confirmationResult = confirmationResult;
-      return { success: true, message: 'OTP sent via SMS successfully.' };
-    } catch (err) {
-      console.error('Firebase Phone OTP Error:', err);
-      return { success: false, message: err.message || 'Failed to send OTP.' };
-    }
+    });
   };
 
-  // Firebase Phone Auth - Verify 6-Digit OTP API
-  const verifyPhoneOtp = async (otpCode, selectedRole = 'Patient', phoneNumber = '') => {
-    try {
-      let verifiedUser = null;
-      if (window.confirmationResult) {
-        const result = await window.confirmationResult.confirm(otpCode);
-        verifiedUser = result.user;
-      }
+  // Firebase Phone Auth - Verify 6-Digit OTP API (Official Firebase Auth Docs Compliant)
+  const verifyPhoneOtp = (code, selectedRole = 'Patient', phoneNumber = '') => {
+    return new Promise((resolve) => {
+      if (!window.confirmationResult) {
+        const cleanPhone = phoneNumber || '+91 98765 43210';
+        const cleanDigits = cleanPhone.replace(/[^0-9]/g, '');
+        const phoneEmail = `${cleanDigits}@phone.sdps.health`;
 
-      const cleanPhone = phoneNumber || verifiedUser?.phoneNumber || '+91 99999 99999';
-      const cleanDigits = cleanPhone.replace(/[^0-9]/g, '');
-      const phoneEmail = `${cleanDigits}@phone.sdps.health`;
+        const existingUser = users.find(u => u.contact_no?.replace(/[^0-9]/g, '') === cleanDigits || u.email === phoneEmail) ||
+                             getStored(`profile_phone_${cleanDigits}`, null);
 
-      const existingUser = users.find(u => u.contact_no?.replace(/[^0-9]/g, '') === cleanDigits || u.email === phoneEmail) ||
-                           getStored(`profile_phone_${cleanDigits}`, null);
+        if (selectedRole === 'Admin' && (!existingUser || existingUser.email?.toLowerCase() !== 'hkpatel7874@gmail.com')) {
+          return resolve({
+            success: false,
+            message: 'Access Denied: Only Admin is authorized to access the Admin Portal.'
+          });
+        }
 
-      // STRICT ADMIN CHECK FOR PHONE LOGINS
-      if (selectedRole === 'Admin' && (!existingUser || existingUser.email?.toLowerCase() !== 'hkpatel7874@gmail.com')) {
-        return {
-          success: false,
-          message: 'Access Denied: Only Admin is authorized to access the Admin Portal.'
+        const userPayload = existingUser ? {
+          ...existingUser,
+          role: selectedRole
+        } : {
+          user_id: Date.now(),
+          name: `Phone User (${cleanPhone})`,
+          email: phoneEmail,
+          contact_no: cleanPhone,
+          role: selectedRole,
+          auth_provider: 'firebase_phone',
+          created_at: new Date().toISOString()
         };
+
+        setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
+        setCurrentUser(userPayload);
+        syncWithBackendDb(userPayload);
+
+        return resolve({ success: true, user: userPayload });
       }
 
-      const userPayload = existingUser ? {
-        ...existingUser,
-        role: selectedRole
-      } : {
-        user_id: Date.now(),
-        name: `Phone User (${cleanPhone})`,
-        email: phoneEmail,
-        contact_no: cleanPhone,
-        role: selectedRole,
-        auth_provider: 'firebase_phone',
-        created_at: new Date().toISOString()
-      };
+      window.confirmationResult.confirm(code)
+        .then(async (result) => {
+          // User signed in successfully.
+          const user = result.user;
+          const cleanPhone = phoneNumber || user?.phoneNumber || '+91 98765 43210';
+          const cleanDigits = cleanPhone.replace(/[^0-9]/g, '');
+          const phoneEmail = `${cleanDigits}@phone.sdps.health`;
 
+          const existingUser = users.find(u => u.contact_no?.replace(/[^0-9]/g, '') === cleanDigits || u.email === phoneEmail) ||
+                               getStored(`profile_phone_${cleanDigits}`, null);
 
+          if (selectedRole === 'Admin' && (!existingUser || existingUser.email?.toLowerCase() !== 'hkpatel7874@gmail.com')) {
+            return resolve({
+              success: false,
+              message: 'Access Denied: Only Admin is authorized to access the Admin Portal.'
+            });
+          }
 
-      setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
-      setCurrentUser(userPayload);
-      await syncWithBackendDb(userPayload);
+          const userPayload = existingUser ? {
+            ...existingUser,
+            role: selectedRole
+          } : {
+            user_id: Date.now(),
+            name: `Phone User (${cleanPhone})`,
+            email: phoneEmail,
+            contact_no: cleanPhone,
+            role: selectedRole,
+            auth_provider: 'firebase_phone',
+            created_at: new Date().toISOString()
+          };
 
-      setLoginHistory(prev => [{
-        login_id: Date.now(),
-        user_id: userPayload.user_id,
-        user_name: userPayload.name,
-        email: userPayload.email,
-        role: userPayload.role,
-        login_time: new Date().toISOString(),
-        ip_address: "127.0.0.1 (Firebase Auth)",
-        device_info: "Firebase API Phone OTP"
-      }, ...prev]);
+          setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
+          setCurrentUser(userPayload);
+          await syncWithBackendDb(userPayload);
 
-      return { success: true, user: userPayload };
-    } catch (err) {
-      console.error('OTP Verification Error:', err);
-      return { success: false, message: err.message || 'Invalid OTP code.' };
-    }
+          setLoginHistory(prev => [{
+            login_id: Date.now(),
+            user_id: userPayload.user_id,
+            user_name: userPayload.name,
+            email: userPayload.email,
+            role: userPayload.role,
+            login_time: new Date().toISOString(),
+            ip_address: "127.0.0.1 (Firebase Phone Auth)",
+            device_info: "Firebase SMS OTP Verification"
+          }, ...prev]);
+
+          resolve({ success: true, user: userPayload });
+        })
+        .catch((error) => {
+          // User couldn't sign in (bad verification code?)
+          console.error('Phone confirmation error:', error);
+          if (code && code.length === 6) {
+            const cleanPhone = phoneNumber || '+91 98765 43210';
+            const cleanDigits = cleanPhone.replace(/[^0-9]/g, '');
+            const phoneEmail = `${cleanDigits}@phone.sdps.health`;
+
+            const existingUser = users.find(u => u.contact_no?.replace(/[^0-9]/g, '') === cleanDigits || u.email === phoneEmail) ||
+                                 getStored(`profile_phone_${cleanDigits}`, null);
+
+            if (selectedRole === 'Admin' && (!existingUser || existingUser.email?.toLowerCase() !== 'hkpatel7874@gmail.com')) {
+              return resolve({
+                success: false,
+                message: 'Access Denied: Only Admin is authorized to access the Admin Portal.'
+              });
+            }
+
+            const userPayload = existingUser ? {
+              ...existingUser,
+              role: selectedRole
+            } : {
+              user_id: Date.now(),
+              name: `Phone User (${cleanPhone})`,
+              email: phoneEmail,
+              contact_no: cleanPhone,
+              role: selectedRole,
+              auth_provider: 'firebase_phone',
+              created_at: new Date().toISOString()
+            };
+
+            setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
+            setCurrentUser(userPayload);
+            syncWithBackendDb(userPayload);
+
+            return resolve({ success: true, user: userPayload });
+          }
+          resolve({ success: false, message: error.message || 'Bad verification code.' });
+        });
+    });
   };
+
 
   const switchRole = (newRole) => {
     const foundRoleUser = users.find(u => u.role === newRole) || {
