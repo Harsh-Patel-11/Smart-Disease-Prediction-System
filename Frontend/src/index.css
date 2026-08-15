@@ -3,21 +3,23 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background-color: #0a0a1a;
-    color: #e2e8f0;
+    background-color: #f8fafc;
+    color: #0f172a;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
+    color: #0f172a;
   }
 }
 
-/* Glassmorphism utilities */
+/* Off-White & Light Glassmorphism utilities */
 .glass-panel {
-  background: rgba(17, 17, 40, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(148, 163, 184, 0.12), 0 2px 6px -1px rgba(148, 163, 184, 0.08);
 }
 
 .glass-panel-hover {
@@ -25,19 +27,20 @@
 }
 
 .glass-panel-hover:hover {
-  background: rgba(30, 27, 60, 0.8);
-  border-color: rgba(129, 140, 248, 0.3);
-  box-shadow: 0 10px 40px -10px rgba(99, 102, 241, 0.15);
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 30px -5px rgba(99, 102, 241, 0.15);
   transform: translateY(-2px);
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(30, 27, 60, 0.5) 0%, rgba(17, 17, 40, 0.7) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.85) 100%);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 15px rgba(148, 163, 184, 0.08);
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar for Light Theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -48,7 +51,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e1b3c;
+  background: #cbd5e1;
   border-radius: 99px;
 }
 
@@ -56,16 +59,91 @@
   background: #6366f1;
 }
 
-/* Background Grid */
+/* Light Background Grid */
 .bg-grid-pattern {
-  background-image: radial-gradient(rgba(99, 102, 241, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(99, 102, 241, 0.14) 1.2px, transparent 1.2px);
   background-size: 28px 28px;
 }
 
-/* Animations */
+/* Dynamic Background Animations for Login Page & Cards */
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(40px, -60px) scale(1.12); }
+  66% { transform: translate(-30px, 30px) scale(0.92); }
+}
+
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(-50px, 40px) scale(1.15); }
+  66% { transform: translate(25px, -35px) scale(0.95); }
+}
+
+@keyframes blobFloat3 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(35px, 35px) scale(1.08); }
+}
+
+.animate-blob-1 {
+  animation: blobFloat1 14s infinite ease-in-out;
+}
+
+.animate-blob-2 {
+  animation: blobFloat2 18s infinite ease-in-out;
+}
+
+.animate-blob-3 {
+  animation: blobFloat3 12s infinite ease-in-out;
+}
+
+@keyframes subtleZoom {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+.animate-subtle-zoom {
+  animation: subtleZoom 20s infinite ease-in-out;
+}
+
+@keyframes iconOrbit1 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(8deg); }
+}
+
+@keyframes iconOrbit2 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-10deg); }
+}
+
+.animate-icon-orbit-1 {
+  animation: iconOrbit1 6s infinite ease-in-out;
+}
+
+.animate-icon-orbit-2 {
+  animation: iconOrbit2 7s infinite ease-in-out;
+}
+
+@keyframes slowSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-slow-spin {
+  animation: slowSpin 25s linear infinite;
+}
+
+@keyframes borderShift {
+  0%, 100% { border-color: rgba(99, 102, 241, 0.4); }
+  33% { border-color: rgba(139, 92, 246, 0.4); }
+  66% { border-color: rgba(236, 72, 153, 0.4); }
+}
+
+.animate-border-shift {
+  animation: borderShift 6s infinite ease-in-out;
+}
+
 @keyframes pulseGlow {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.04); }
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.04); }
 }
 
 .animate-pulse-glow {
@@ -74,11 +152,11 @@
 
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-8px); }
 }
 
 .animate-float {
-  animation: float 6s infinite ease-in-out;
+  animation: float 5s infinite ease-in-out;
 }
 
 @keyframes shimmer {
@@ -87,7 +165,7 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
   background-size: 200% 100%;
   animation: shimmer 3s infinite;
 }
@@ -144,4 +222,47 @@ button, .clickable-unit {
 
 button:active:not(:disabled), .clickable-unit:active {
   transform: scale(0.97);
+}
+
+/* ─── MOBILE OPTIMIZATIONS ────────────────────────────────────────────────── */
+
+/* 
+ * iOS Safari Auto-Zoom Fix:
+ * When an input has font-size < 16px, iOS Safari automatically zooms in,
+ * which causes the sidebar/database tab to "disappear" visually.
+ * This forces all inputs to 16px on mobile, preventing the zoom.
+ */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Safe area inset support (iPhone X+ notch / home indicator) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent tap highlight flash on mobile taps */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure touch events work smoothly on interactive elements */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Fix for mobile overflow on animated backgrounds */
+@media (max-width: 640px) {
+  .animate-blob-1,
+  .animate-blob-2 {
+    display: none;
+  }
 }

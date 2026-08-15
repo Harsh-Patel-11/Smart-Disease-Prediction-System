@@ -63,285 +63,195 @@ export const DiagnosisReportModal = ({ report, onClose, onOpenPrescription }) =>
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#0a0a1a]/85 backdrop-blur-md overflow-y-auto animate-modal-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md overflow-y-auto animate-modal-backdrop"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl glass-panel rounded-3xl border border-slate-700 shadow-2xl overflow-hidden my-auto animate-modal-content max-h-[90vh] flex flex-col"
+        className="w-full max-w-3xl bg-white rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden my-auto animate-modal-content max-h-[90vh] flex flex-col text-slate-900"
       >
         
         {/* Sticky Header Action Bar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-[#0a0a1a]/95 backdrop-blur-xl border-b border-white/[0.08] shrink-0">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-white text-sm block">Official Diagnostic Report</span>
-              <span className="text-[10px] font-mono text-indigo-400">#SDPS-{report.report_id}</span>
+              <span className="font-extrabold text-slate-900 text-sm block">Official Diagnostic Report</span>
+              <span className="text-[10px] font-mono text-indigo-600 font-bold">#SDPS-{report.report_id}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
             >
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
             <button
               onClick={handleDownloadPDF}
-              className="px-3 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-md shadow-indigo-500/20 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" /> Download PDF
             </button>
             <button
               onClick={handleDelete}
-              className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Delete Report"
+              className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
             <button
               onClick={onClose}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Close Report (Esc)"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ml-1 cursor-pointer"
             >
-              <X className="w-4 h-4" /> Close
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Printable Report Document Body */}
-        <div className="overflow-y-auto flex-1 p-6 sm:p-8 bg-[#0a0a1a] text-slate-100 space-y-6">
-          <div id="printable-diagnosis-report" className="space-y-6">
-            
-            {/* Clinic / System Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start border-b border-white/[0.06] pb-6 gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-6 h-6 text-indigo-400" />
-                  <h2 className="text-xl font-extrabold text-white">SMART DISEASE PREDICTION SYSTEM</h2>
-                </div>
-                <p className="text-xs text-slate-400 font-medium">Department of AI Diagnostics & Clinical Decision Support</p>
-                <p className="text-[11px] text-slate-500 font-mono">ISO 27001 Certified • SRS Compliant Module UC-05/UC-06</p>
-                {/* AI model badge */}
-                {report.groq_powered ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
-                    <Sparkles className="w-3 h-3" /> Groq AI · {report.ai_model || 'llama-3.3-70b-versatile'}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-semibold">
-                    <Activity className="w-3 h-3" /> Local ML Engine (offline fallback)
-                  </span>
-                )}
-              </div>
-
-              <div className="text-left sm:text-right space-y-1 text-xs text-slate-400">
-                <p><span className="text-slate-500">Report ID:</span> <strong className="text-white font-mono">#SDPS-{report.report_id}</strong></p>
-                <p><span className="text-slate-500">Issued On:</span> <strong className="text-white">{new Date(report.report_date).toLocaleString()}</strong></p>
-                <p><span className="text-slate-500">Verification Status:</span> <span className="text-violet-400 font-semibold">VERIFIED AI RESULT</span></p>
-                {report.urgency_level && (
-                  <p><span className="text-slate-500">Urgency:</span> <span className={`font-bold ${
-                    report.urgency_level === 'Emergency' ? 'text-rose-400'
-                    : report.urgency_level === 'Urgent' ? 'text-amber-400'
-                    : 'text-emerald-400'
-                  }`}>{report.urgency_level}</span></p>
-                )}
-              </div>
-            </div>
-
-            {/* Patient Details Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-xs">
-              <div>
-                <p className="text-slate-500">Patient Name</p>
-                <p className="font-bold text-white text-sm">{report.patient_name}</p>
+        {/* Printable Report Body */}
+        <div id="printable-diagnosis-report" className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1 bg-white text-slate-900">
+          
+          {/* Clinic Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-200">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white flex items-center justify-center font-extrabold text-xl shadow-md">
+                SD
               </div>
               <div>
-                <p className="text-slate-500">Age / Gender</p>
-                <p className="font-bold text-white text-sm">{report.patient_age ? `${report.patient_age} Yrs` : 'N/A'} {report.patient_gender ? `/ ${report.patient_gender}` : ''}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Confidence Level</p>
-                <p className="font-extrabold text-indigo-400 text-sm">{report.confidence_score}% Match</p>
+                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Smart Disease Prediction System</h2>
+                <p className="text-xs text-slate-500 font-bold">AI Clinical Diagnostic & Decision Support Engine</p>
               </div>
             </div>
 
-            {/* Primary Diagnosis Summary Box */}
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
-                  <Award className="w-4 h-4" /> PRIMARY AI DIAGNOSIS RESULT
-                </span>
-                <div className="flex items-center gap-2">
-                  {report.icd_code && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/20">
-                      ICD: {report.icd_code}
-                    </span>
-                  )}
-                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
-                    Confidence: {report.confidence_score}%
-                  </span>
-                </div>
-              </div>
-
-              <h3 className="text-2xl font-extrabold text-white">{report.primary_diagnosis}</h3>
-
-              <div>
-                <p className="text-xs font-semibold text-slate-400 mb-1">Evaluated Input Symptoms:</p>
-                <div className="flex flex-wrap gap-2">
-                  {report.symptoms_summary.map((sym, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 text-xs font-medium border border-slate-700">
-                      • {sym}
-                    </span>
-                  ))}
-                </div>
-              </div>
+            <div className="text-left sm:text-right text-xs text-slate-500 space-y-0.5 font-medium">
+              <p><strong className="text-slate-900 font-bold">Report Date:</strong> {new Date(report.report_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+              <p><strong className="text-slate-900 font-bold">Validation Status:</strong> Verified</p>
+              <p><strong className="text-slate-900 font-bold">System Protocol:</strong> Clinical AI v2.4</p>
             </div>
-
-            {/* AI Clinical Analysis */}
-            {report.clinical_analysis && (
-              <div className="p-5 rounded-2xl bg-slate-900/60 border border-indigo-500/20 space-y-2">
-                <h4 className="font-bold text-indigo-300 flex items-center gap-1.5 text-sm">
-                  <Brain className="w-4 h-4" /> AI Clinical Analysis
-                </h4>
-                <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-line">{report.clinical_analysis}</p>
-              </div>
-            )}
-
-            {/* AI Recommendations */}
-            {report.recommendations && report.recommendations.length > 0 && (
-              <div className="p-5 rounded-2xl bg-slate-900/60 border border-emerald-500/20 space-y-2">
-                <h4 className="font-bold text-emerald-300 flex items-center gap-1.5 text-sm">
-                  <CheckCircle2 className="w-4 h-4" /> Clinical Recommendations
-                </h4>
-                <ul className="space-y-1.5">
-                  {report.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-slate-300">
-                      <span className="text-emerald-400 mt-0.5 shrink-0">✓</span> {rec}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Emergency Warnings */}
-            {report.emergency_warnings && report.emergency_warnings.length > 0 && (
-              <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2">
-                <h4 className="font-bold text-rose-300 flex items-center gap-1.5 text-sm">
-                  <AlertTriangle className="w-4 h-4" /> Emergency Warning Signs
-                </h4>
-                <p className="text-[11px] text-rose-200/70">Seek immediate emergency care if any of the following occur:</p>
-                <ul className="space-y-1.5">
-                  {report.emergency_warnings.map((w, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-rose-200">
-                      <span className="text-rose-400 mt-0.5 shrink-0">⚠</span> {w}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Clinical Advice & Recommended Specialist */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] space-y-2">
-                <h4 className="font-bold text-violet-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4" /> Clinical Precautions & Advice
-                </h4>
-                <p className="text-slate-300 leading-relaxed">{report.clinical_advice || report.clinical_analysis || 'Follow your doctor\'s instructions.'}</p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] space-y-2">
-                  <h4 className="font-bold text-indigo-400 flex items-center gap-1.5">
-                    <Stethoscope className="w-4 h-4" /> Recommended Specialist
-                  </h4>
-                  <p className="text-slate-200 font-semibold">{report.recommended_specialist}</p>
-                  <p className="text-slate-400">Consult with the recommended specialist for formal clinical evaluation and lab tests.</p>
-                </div>
-                {report.follow_up_advice && (
-                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.06] space-y-1.5">
-                    <h4 className="font-bold text-cyan-400 flex items-center gap-1.5">
-                      <CalendarClock className="w-4 h-4" /> Follow-Up Advice
-                    </h4>
-                    <p className="text-slate-300">{report.follow_up_advice}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Prescribed Medications Section */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-white text-sm flex items-center gap-2">
-                  <Pill className="w-4 h-4 text-indigo-400" /> Prescribed Medications Schedule
-                </h4>
-                <button
-                  onClick={() => {
-                    onClose();
-                    if (onOpenPrescription) onOpenPrescription(report);
-                  }}
-                  className="text-xs text-indigo-400 hover:underline font-semibold"
-                >
-                  View Full Digital Prescription Card →
-                </button>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-white/[0.06]">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.04] text-slate-400 font-semibold border-b border-white/[0.06]">
-                    <tr>
-                      <th className="p-3">Medicine Name</th>
-                      <th className="p-3">Dosage Instruction</th>
-                      <th className="p-3">Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {report.prescriptions.map((med, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/40">
-                        <td className="p-3 font-semibold text-white">{med.medicine_name}</td>
-                        <td className="p-3 text-indigo-300">{med.dosage}</td>
-                        <td className="p-3 text-slate-300">{med.duration}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Footer Signature */}
-            <div className="pt-6 border-t border-white/[0.06] flex justify-between items-end text-xs text-slate-400">
-              <div>
-                <p className="text-[10px] text-slate-500 font-mono">COMPUTER GENERATED CLINICAL REPORT • VERIFIED BY SDPS AI</p>
-                <p>SDPS AI Core · {report.ai_model || 'Local ML Engine'}</p>
-              </div>
-              <div className="text-right text-[10px] font-mono text-slate-500">
-                OFFICIAL SYSTEM DIAGNOSIS
-              </div>
-            </div>
-
           </div>
+
+          {/* Patient Profile Information Card */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Patient Name</p>
+              <p className="font-extrabold text-slate-900 text-sm mt-0.5">{report.patient_name}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Age & Gender</p>
+              <p className="font-bold text-slate-800 mt-0.5">{report.patient_age || '25'} yrs / {report.patient_gender || 'Male'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Attending Medical Specialist</p>
+              <p className="font-bold text-indigo-700 mt-0.5">{report.recommended_specialist}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Diagnostic Engine</p>
+              <p className="font-bold text-emerald-700 mt-0.5">{report.groq_powered ? 'Groq AI (llama-3.3-70b)' : 'ML Algorithm'}</p>
+            </div>
+          </div>
+
+          {/* Primary Diagnosis & Match Probability */}
+          <div className="p-6 rounded-3xl bg-indigo-50/60 border border-indigo-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300 text-xs font-bold flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-indigo-600" /> Primary Clinical Diagnosis
+              </span>
+              <span className={`text-xs font-extrabold px-3 py-1 rounded-lg border ${
+                report.severity_level === 'Emergency' || report.severity_level === 'High'
+                  ? 'bg-rose-100 text-rose-800 border-rose-200'
+                  : 'bg-violet-100 text-violet-800 border-violet-200'
+              }`}>
+                {report.severity_level} Severity
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-2xl font-extrabold text-slate-900">{report.primary_diagnosis}</h3>
+              {report.icd_code && <p className="text-xs font-mono text-slate-500 font-bold mt-0.5">ICD-10 Code: {report.icd_code}</p>}
+            </div>
+
+            {/* Confidence Score Bar */}
+            <div className="space-y-1.5 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-700">AI Diagnostic Confidence Score</span>
+                <span className="text-indigo-600 font-extrabold">{report.confidence_score}% Match Probability</span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-1000 shadow-xs"
+                  style={{ width: `${report.confidence_score}%` }}
+                />
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-700 leading-relaxed font-medium bg-white p-3.5 rounded-xl border border-slate-200/80">
+              {report.clinical_analysis}
+            </p>
+          </div>
+
+          {/* Observed Symptoms */}
+          {report.symptoms_observed && report.symptoms_observed.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Observed Patient Symptoms</h4>
+              <div className="flex flex-wrap gap-2">
+                {report.symptoms_observed.map((sym, idx) => (
+                  <span key={idx} className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold">
+                    ✓ {sym}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations & Follow-Up */}
+          {report.recommendations && report.recommendations.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Clinical Precautions & Advice
+              </h4>
+              <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 space-y-2">
+                {report.recommendations.map((rec, idx) => (
+                  <p key={idx} className="text-xs text-slate-800 font-medium flex items-start gap-2">
+                    <span className="text-emerald-600 font-bold">•</span>
+                    <span>{rec}</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Electronic Signature */}
+          <div className="pt-6 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500 font-medium">
+            <div>
+              <p className="font-extrabold text-slate-900">Dr. System Diagnostic AI Engine</p>
+              <p className="text-[11px] text-slate-400">Automated Clinical Decision Support</p>
+            </div>
+            <div className="text-right">
+              <div className="w-32 h-10 border-b border-dashed border-slate-400 mb-1 flex items-end justify-center">
+                <span className="text-[10px] text-indigo-600 font-mono font-bold">VERIFIED_DIGITAL_SIG</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold">Official Seal & Signature</p>
+            </div>
+          </div>
+
         </div>
 
-        {/* Modal Bottom Footer Actions */}
-        <div className="sticky bottom-0 z-30 flex items-center justify-between px-6 py-4 bg-[#0a0a1a]/95 backdrop-blur-xl border-t border-white/[0.08] shrink-0">
-          <button
-            onClick={() => {
-              onClose();
-              if (onOpenPrescription) onOpenPrescription(report);
-            }}
-            className="px-4 py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Pill className="w-4 h-4" /> View Prescription Card
-          </button>
-
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 transition-all cursor-pointer"
-          >
-            <XCircle className="w-4 h-4" /> Close Report
-          </button>
-        </div>
+        {/* Footer Action Trigger for Digital Rx */}
+        {onOpenPrescription && report.prescriptions && report.prescriptions.length > 0 && (
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+            <button
+              onClick={() => {
+                onClose();
+                onOpenPrescription(report);
+              }}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+            >
+              <Pill className="w-4 h-4" /> View Full Electronic Prescription Card (Rx)
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

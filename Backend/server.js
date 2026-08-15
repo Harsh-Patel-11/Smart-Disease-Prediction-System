@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Groq from 'groq-sdk';
-import { initDatabase, syncUserToDb, getAllUsersFromDb, savePredictionToDb, getAllPredictionsFromDb, saveLoginHistoryToDb, getAllLoginHistoryFromDb } from './db.js';
+import { initDatabase, syncUserToDb, getAllUsersFromDb, savePredictionToDb, getAllPredictionsFromDb, saveLoginHistoryToDb, getAllLoginHistoryFromDb, saveReportToDb, getAllReportsFromDb, deleteReportFromDb } from './db.js';
 
 
 const app = express();
@@ -235,11 +235,49 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required.' });
     }
 
-    const systemPrompt = `You are SDPS Health Assistant, an empathetic, highly knowledgeable, and precise AI medical & health assistant integrated into the Smart Disease Prediction System (SDPS).
-Provide accurate, reassuring, and practical medical guidance, health recommendations, symptom explanations, diet tips, and general medical knowledge.
-Format your responses using clean GitHub-style Markdown with bullet points, bold key terms, and short paragraphs for readability.
-If a user asks about urgent or life-threatening symptoms (chest pain, stroke, severe bleeding), emphasize seeking emergency care immediately.
-Keep responses concise, informative, warm, and helpful.`;
+    const now = new Date();
+    const formattedDate = patientContext?.currentDate || now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const formattedTime = patientContext?.currentTime || now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    const timeZone = patientContext?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata (IST)';
+
+    const systemPrompt = `You are SDPS Health Assistant, an empathetic, highly knowledgeable, and versatile AI medical, health & general assistant integrated into the Smart Disease Prediction System (SDPS.ai).
+
+CURRENT REAL-TIME TEMPORAL CONTEXT:
+- Today's Date: ${formattedDate}
+- Current Local Time: ${formattedTime} (${timeZone})
+- Current Year: ${now.getFullYear()}
+
+PLATFORM OWNERSHIP & CREATOR INFORMATION:
+- This website and system (SDPS - Smart Disease Prediction System) was designed, created, developed, and is owned by **Harsh Patel**, a Software Engineering student and Lead Architect.
+- If any user asks about who built this website, who created SDPS, who owns this platform, or who Harsh Patel is, always state clearly that **Harsh Patel** is the sole creator, owner, and lead developer of SDPS.ai.
+
+GENERAL & CONVERSATIONAL QUESTIONS:
+- You ARE fully capable of answering everyday questions, date and time inquiries, general knowledge, greetings, and health/medical guidance accurately and immediately.
+- If the user asks "what is today's date?", "what time is it?", "what day is it today?", greetings, or general knowledge, answer them directly, accurately, and pleasantly using the real-time context provided above.
+- NEVER state "I don't have access to real-time information" or "I cannot tell time" because the exact real-time date and time are provided above in your context.
+
+STRICT KEYWORD BOLDING & FORMATTING GUIDELINES:
+1. **Highlight Essential Keywords Only**: Use markdown bolding (**keyword**) ONLY for high-priority clinical and medical keywords:
+   - Primary Disease / Condition names (e.g., **Dengue Fever**, **Type 2 Diabetes**, **Hypertension**, **Migraine**)
+   - Key Symptoms (e.g., **High-grade fever (102°F+)**, **Shortness of breath**, **Chest tightness**)
+   - Core Medications, Doses, and Clinical solutions (e.g., **Paracetamol (500mg)**, **Oral Rehydration Salts (ORS)**, **Saline nasal spray**)
+   - Critical Warning Indicators / Red Flags (e.g., **Emergency Warning Signs**, **Immediate Medical Attention**)
+   - Section Titles / Labels (e.g., **Key Action Steps:**, **Dietary Advice:**, **When to consult a Doctor:**)
+   - Real-time Specifics & Creator: **${formattedDate}**, **${formattedTime}**, **Harsh Patel**
+2. **DO NOT Bold Generic Everyday Words**: Never bold conversational filler words, pronouns, or arbitrary verbs/adjectives such as: "**you should**", "**it is**", "**very**", "**important**", "**make sure**", "**take**", "**drink**", "**food**", "**well**", "**also**", "**can be**", "**daily**", "**help**", etc.
+3. Structure responses cleanly using bullet points (- or •), numbered lists (1., 2.), and concise paragraphs so patients and doctors can scan key insights effortlessly.
+4. If a user describes life-threatening emergency symptoms (such as acute chest pain, stroke symptoms, respiratory distress, severe bleeding), clearly state **Seek Immediate Emergency Care** and direct them to local emergency services.
+5. Keep responses concise, warm, helpful, and clinically sound.`;
 
     const groqMessages = [
       { role: 'system', content: systemPrompt },
@@ -282,6 +320,38 @@ app.get('/api/predictions', async (req, res) => {
     res.json({ count: predictions.length, predictions });
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve predictions from database.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// Diagnosis Reports Endpoints
+// ─────────────────────────────────────────────
+app.get('/api/reports', async (req, res) => {
+  try {
+    const reports = await getAllReportsFromDb();
+    res.json({ count: reports.length, reports });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve diagnosis reports from database.' });
+  }
+});
+
+app.post('/api/reports', async (req, res) => {
+  try {
+    const reportData = req.body;
+    const result = await saveReportToDb(reportData);
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error('Failed to save report to DB:', err);
+    res.status(500).json({ error: 'Failed to save report to database.' });
+  }
+});
+
+app.delete('/api/reports/:id', async (req, res) => {
+  try {
+    await deleteReportFromDb(req.params.id);
+    res.json({ success: true, message: `Report #${req.params.id} deleted from database.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete report from database.' });
   }
 });
 

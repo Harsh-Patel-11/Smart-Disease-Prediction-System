@@ -22,7 +22,7 @@ export const Footer = () => {
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed max-w-md">
-              A comprehensive clinical decision support web application built strictly in compliance with IEEE Software Requirements Specification standards. Features ML disease prediction, automated diagnosis report generation, electronic prescriptions, and audit control.
+              A comprehensive clinical decision support web application. Features ML disease prediction, automated diagnosis report generation, electronic prescriptions, and audit control.
             </p>
           </div>
 
@@ -34,14 +34,13 @@ export const Footer = () => {
               <li><button onClick={() => setActiveTab('checker')} className="hover:text-indigo-400 transition-colors">AI Symptom Checker</button></li>
               <li><button onClick={() => setActiveTab('history')} className="hover:text-indigo-400 transition-colors">Reports & Prescriptions</button></li>
               <li><button onClick={() => setActiveTab('admin')} className="hover:text-indigo-400 transition-colors">Admin Management</button></li>
-              <li><button onClick={() => setActiveTab('srs')} className="hover:text-indigo-400 transition-colors">SRS Architecture Models</button></li>
             </ul>
           </div>
 
           {/* Compliance & Specs */}
           <div className="space-y-2 text-xs">
             <p className="font-bold text-white uppercase tracking-wider mb-2">Technical Standards</p>
-            <p className="text-slate-400 font-mono text-[11px]">• IEEE-830 SRS Compliant</p>
+            <p className="text-slate-400 font-mono text-[11px]">• Clinical Decision Support Engine</p>
             <p className="text-slate-400 font-mono text-[11px]">• 10 Master Database Entities</p>
             <p className="text-slate-400 font-mono text-[11px]">• Role-Based Access Control</p>
             <p className="text-slate-400 font-mono text-[11px]">• Automated PDF Exporting</p>

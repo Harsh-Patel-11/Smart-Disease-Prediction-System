@@ -11,7 +11,6 @@ import {
   Database,
   CheckCircle2,
   Lock,
-  Layers,
   Sparkles
 } from 'lucide-react';
 
@@ -57,11 +56,11 @@ export const Hero = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('srs')}
+              onClick={() => setActiveTab('history')}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl glass-panel text-white font-bold text-base hover:bg-slate-800/80 transition-all border border-slate-700 flex items-center justify-center gap-3"
             >
-              <Layers className="w-5 h-5 text-violet-400" />
-              View SRS Architecture Models
+              <FileCheck className="w-5 h-5 text-violet-400" />
+              View Medical History
             </button>
           </div>
 
@@ -81,7 +80,7 @@ export const Hero = () => {
             </div>
             <div className="glass-panel p-4 rounded-2xl border border-white/[0.06] text-center">
               <p className="text-2xl lg:text-3xl font-extrabold text-violet-400">100%</p>
-              <p className="text-xs text-slate-400 font-medium">SRS Rule Compliant</p>
+              <p className="text-xs text-slate-400 font-medium">Digital Rx Ready</p>
             </div>
           </div>
         </div>

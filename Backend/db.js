@@ -85,6 +85,33 @@ export async function initDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await mysqlPool.query(`
+      CREATE TABLE IF NOT EXISTS diagnosis_reports (
+        report_id BIGINT PRIMARY KEY,
+        prediction_id BIGINT,
+        user_id BIGINT,
+        patient_name VARCHAR(150),
+        patient_email VARCHAR(150),
+        patient_phone VARCHAR(50),
+        patient_age VARCHAR(10),
+        patient_gender VARCHAR(20),
+        primary_diagnosis VARCHAR(200),
+        icd_code VARCHAR(50),
+        confidence_score DECIMAL(5,2),
+        urgency_level VARCHAR(30),
+        severity_level VARCHAR(30),
+        symptoms_summary TEXT,
+        clinical_analysis TEXT,
+        recommendations TEXT,
+        recommended_specialist VARCHAR(150),
+        follow_up_advice TEXT,
+        emergency_warnings TEXT,
+        prescriptions TEXT,
+        groq_powered TINYINT(1) DEFAULT 0,
+        ai_model VARCHAR(80),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
     dbMode = 'mysql';
     console.log(`✅ [MySQL DB] Connected successfully to database: '${DB_CONFIG.database}'`);
@@ -124,6 +151,32 @@ export async function initDatabase() {
         login_time TEXT DEFAULT CURRENT_TIMESTAMP,
         ip_address TEXT,
         device_info TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS diagnosis_reports (
+        report_id INTEGER PRIMARY KEY,
+        prediction_id INTEGER,
+        user_id INTEGER,
+        patient_name TEXT,
+        patient_email TEXT,
+        patient_phone TEXT,
+        patient_age TEXT,
+        patient_gender TEXT,
+        primary_diagnosis TEXT,
+        icd_code TEXT,
+        confidence_score REAL,
+        urgency_level TEXT,
+        severity_level TEXT,
+        symptoms_summary TEXT,
+        clinical_analysis TEXT,
+        recommendations TEXT,
+        recommended_specialist TEXT,
+        follow_up_advice TEXT,
+        emergency_warnings TEXT,
+        prescriptions TEXT,
+        groq_powered INTEGER DEFAULT 0,
+        ai_model TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -280,3 +333,74 @@ export async function getAllPredictionsFromDb() {
   }
   return [];
 }
+
+// Save Diagnosis Report to DB
+export async function saveReportToDb(reportData) {
+  const {
+    report_id, prediction_id, user_id, patient_name, patient_email, patient_phone,
+    patient_age, patient_gender, primary_diagnosis, icd_code, confidence_score,
+    urgency_level, severity_level, symptoms_summary, clinical_analysis,
+    recommendations, recommended_specialist, follow_up_advice, emergency_warnings,
+    prescriptions, groq_powered, ai_model
+  } = reportData;
+
+  const symStr = Array.isArray(symptoms_summary) ? JSON.stringify(symptoms_summary) : symptoms_summary;
+  const recStr = Array.isArray(recommendations) ? JSON.stringify(recommendations) : recommendations;
+  const warnStr = Array.isArray(emergency_warnings) ? JSON.stringify(emergency_warnings) : emergency_warnings;
+  const rxStr = Array.isArray(prescriptions) ? JSON.stringify(prescriptions) : prescriptions;
+
+  if (dbMode === 'mysql' && mysqlPool) {
+    await mysqlPool.query(
+      `INSERT INTO diagnosis_reports
+        (report_id, prediction_id, user_id, patient_name, patient_email, patient_phone,
+         patient_age, patient_gender, primary_diagnosis, icd_code, confidence_score,
+         urgency_level, severity_level, symptoms_summary, clinical_analysis,
+         recommendations, recommended_specialist, follow_up_advice, emergency_warnings,
+         prescriptions, groq_powered, ai_model)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE primary_diagnosis=VALUES(primary_diagnosis)`,
+      [report_id, prediction_id, user_id, patient_name, patient_email, patient_phone,
+       patient_age, patient_gender, primary_diagnosis, icd_code, confidence_score,
+       urgency_level, severity_level, symStr, clinical_analysis,
+       recStr, recommended_specialist, follow_up_advice, warnStr,
+       rxStr, groq_powered ? 1 : 0, ai_model]
+    );
+  } else if (sqliteDb) {
+    await sqliteDb.run(
+      `INSERT OR REPLACE INTO diagnosis_reports
+        (report_id, prediction_id, user_id, patient_name, patient_email, patient_phone,
+         patient_age, patient_gender, primary_diagnosis, icd_code, confidence_score,
+         urgency_level, severity_level, symptoms_summary, clinical_analysis,
+         recommendations, recommended_specialist, follow_up_advice, emergency_warnings,
+         prescriptions, groq_powered, ai_model)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [report_id, prediction_id, user_id, patient_name, patient_email, patient_phone,
+       patient_age, patient_gender, primary_diagnosis, icd_code, confidence_score,
+       urgency_level, severity_level, symStr, clinical_analysis,
+       recStr, recommended_specialist, follow_up_advice, warnStr,
+       rxStr, groq_powered ? 1 : 0, ai_model]
+    );
+  }
+  return { report_id, primary_diagnosis };
+}
+
+// Fetch all Diagnosis Reports from DB
+export async function getAllReportsFromDb() {
+  if (dbMode === 'mysql' && mysqlPool) {
+    const [rows] = await mysqlPool.query(`SELECT * FROM diagnosis_reports ORDER BY created_at DESC LIMIT 200`);
+    return rows;
+  } else if (sqliteDb) {
+    return await sqliteDb.all(`SELECT * FROM diagnosis_reports ORDER BY created_at DESC LIMIT 200`);
+  }
+  return [];
+}
+
+// Delete Diagnosis Report from DB
+export async function deleteReportFromDb(report_id) {
+  if (dbMode === 'mysql' && mysqlPool) {
+    await mysqlPool.query(`DELETE FROM diagnosis_reports WHERE report_id = ?`, [report_id]);
+  } else if (sqliteDb) {
+    await sqliteDb.run(`DELETE FROM diagnosis_reports WHERE report_id = ?`, [report_id]);
+  }
+}
+

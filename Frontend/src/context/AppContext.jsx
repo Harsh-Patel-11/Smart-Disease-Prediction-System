@@ -12,14 +12,19 @@ import {
 } from '../data/initialData';
 import {
   auth,
+  db,
   googleProvider,
   signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
   RecaptchaVerifier,
-  signInWithPhoneNumber
+  signInWithPhoneNumber,
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  deleteDoc,
+  onSnapshot
 } from '../firebase/config';
 
 const AppContext = createContext();
@@ -104,6 +109,197 @@ export const AppProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // ─── Cloud Firestore Persistence Handlers ───
+  const syncReportToFirestore = async (reportData) => {
+    if (!reportData) return;
+    try {
+      const docId = String(reportData.report_id);
+      const docRef = doc(db, 'diagnosis_reports', docId);
+      const payload = {
+        ...reportData,
+        report_id: reportData.report_id,
+        patient_email: (reportData.patient_email || '').toLowerCase().trim(),
+        patient_phone: (reportData.patient_phone || '').replace(/[^0-9]/g, ''),
+        patient_name: reportData.patient_name || '',
+        user_id: reportData.user_id || 2,
+        primary_diagnosis: reportData.primary_diagnosis || '',
+        confidence_score: reportData.confidence_score || 0,
+        symptoms_summary: Array.isArray(reportData.symptoms_summary) ? reportData.symptoms_summary : [],
+        clinical_analysis: reportData.clinical_analysis || '',
+        clinical_advice: reportData.clinical_advice || '',
+        recommendations: Array.isArray(reportData.recommendations) ? reportData.recommendations : [],
+        follow_up_advice: reportData.follow_up_advice || '',
+        emergency_warnings: Array.isArray(reportData.emergency_warnings) ? reportData.emergency_warnings : [],
+        prescriptions: Array.isArray(reportData.prescriptions) ? reportData.prescriptions : [],
+        attending_doctor: reportData.attending_doctor || 'Dr. Rajesh Sharma (Chief Medical Officer)',
+        report_date: reportData.report_date || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      await setDoc(docRef, payload, { merge: true });
+      console.log('✅ Diagnosis Report & Prescription synced to Cloud Firestore:', docId);
+    } catch (e) {
+      console.warn('Firestore report sync note:', e);
+    }
+  };
+
+  const deleteReportFromFirestore = async (report_id) => {
+    try {
+      const docRef = doc(db, 'diagnosis_reports', String(report_id));
+      await deleteDoc(docRef);
+      console.log('🗑️ Diagnosis Report deleted from Cloud Firestore:', report_id);
+    } catch (e) {
+      console.warn('Firestore report delete note:', e);
+    }
+  };
+
+  const syncUserToFirestore = async (userData) => {
+    if (!userData) return;
+    try {
+      const rawKey = userData.email || userData.phone || userData.contact_no || String(userData.user_id || Date.now());
+      const userKey = String(rawKey).toLowerCase().trim().replace(/[\/\s@.]/g, '_');
+      const docRef = doc(db, 'users', userKey);
+      await setDoc(docRef, {
+        ...userData,
+        email: (userData.email || '').toLowerCase().trim(),
+        phone: (userData.contact_no || userData.phone || '').replace(/[^0-9]/g, ''),
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+      console.log('✅ User profile synced to Cloud Firestore:', userKey);
+    } catch (e) {
+      console.warn('Firestore user sync note:', e);
+    }
+  };
+
+  const syncPredictionToFirestore = async (predData) => {
+    if (!predData) return;
+    try {
+      const docRef = doc(db, 'predictions', String(predData.prediction_id));
+      await setDoc(docRef, {
+        ...predData,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {}
+  };
+
+  const syncAuditLogToFirestore = async (logData) => {
+    if (!logData) return;
+    try {
+      const docRef = doc(db, 'audit_logs', String(logData.login_id || Date.now()));
+      await setDoc(docRef, {
+        ...logData,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {}
+  };
+
+  // ─── Real-time Cloud Firestore Subscriptions (Multi-device live sync) ───
+  useEffect(() => {
+    let unsubscribeReports = null;
+    let unsubscribeUsers = null;
+    let unsubscribeAudit = null;
+    let unsubscribePredictions = null;
+
+    try {
+      // 1. Subscribe to Cloud Firestore Reports (with Prescriptions)
+      const reportsCollection = collection(db, 'diagnosis_reports');
+      unsubscribeReports = onSnapshot(reportsCollection, (snapshot) => {
+        if (!snapshot.empty) {
+          const incoming = [];
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            incoming.push({
+              ...data,
+              symptoms_summary: Array.isArray(data.symptoms_summary) ? data.symptoms_summary : (typeof data.symptoms_summary === 'string' ? JSON.parse(data.symptoms_summary || '[]') : []),
+              recommendations: Array.isArray(data.recommendations) ? data.recommendations : (typeof data.recommendations === 'string' ? JSON.parse(data.recommendations || '[]') : []),
+              prescriptions: Array.isArray(data.prescriptions) ? data.prescriptions : (typeof data.prescriptions === 'string' ? JSON.parse(data.prescriptions || '[]') : [])
+            });
+          });
+
+          setReports(prev => {
+            const mergedMap = new Map();
+            prev.forEach(r => mergedMap.set(String(r.report_id), r));
+            incoming.forEach(r => mergedMap.set(String(r.report_id), r));
+            const list = Array.from(mergedMap.values());
+            list.sort((a, b) => new Date(b.report_date || 0) - new Date(a.report_date || 0));
+            return list;
+          });
+        }
+      }, (err) => {
+        console.warn('Firestore reports subscription note:', err);
+      });
+
+      // 2. Subscribe to Cloud Firestore Users
+      const usersCollection = collection(db, 'users');
+      unsubscribeUsers = onSnapshot(usersCollection, (snapshot) => {
+        if (!snapshot.empty) {
+          const incomingUsers = [];
+          snapshot.forEach(docSnap => {
+            incomingUsers.push(docSnap.data());
+          });
+          setUsers(prev => {
+            const mergedMap = new Map();
+            prev.forEach(u => mergedMap.set(u.email?.toLowerCase(), u));
+            incomingUsers.forEach(u => {
+              if (u.email) {
+                const existing = mergedMap.get(u.email.toLowerCase());
+                mergedMap.set(u.email.toLowerCase(), existing ? { ...existing, ...u } : u);
+              }
+            });
+            return Array.from(mergedMap.values());
+          });
+        }
+      }, (err) => {
+        console.warn('Firestore users subscription note:', err);
+      });
+
+      // 3. Subscribe to Cloud Firestore Predictions
+      const predictionsCollection = collection(db, 'predictions');
+      unsubscribePredictions = onSnapshot(predictionsCollection, (snapshot) => {
+        if (!snapshot.empty) {
+          const incomingPreds = [];
+          snapshot.forEach(docSnap => {
+            incomingPreds.push(docSnap.data());
+          });
+          setPredictions(prev => {
+            const mergedMap = new Map();
+            prev.forEach(p => mergedMap.set(String(p.prediction_id), p));
+            incomingPreds.forEach(p => mergedMap.set(String(p.prediction_id), p));
+            const list = Array.from(mergedMap.values());
+            list.sort((a, b) => new Date(b.prediction_date || 0) - new Date(a.prediction_date || 0));
+            return list;
+          });
+        }
+      }, (err) => {});
+
+      // 4. Subscribe to Cloud Firestore Audit Logs
+      const auditCollection = collection(db, 'audit_logs');
+      unsubscribeAudit = onSnapshot(auditCollection, (snapshot) => {
+        if (!snapshot.empty) {
+          const incomingLogs = [];
+          snapshot.forEach(docSnap => {
+            incomingLogs.push(docSnap.data());
+          });
+          setLoginHistory(prev => {
+            const mergedMap = new Map();
+            prev.forEach(l => mergedMap.set(String(l.login_id), l));
+            incomingLogs.forEach(l => mergedMap.set(String(l.login_id), l));
+            const list = Array.from(mergedMap.values());
+            list.sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
+            return list;
+          });
+        }
+      }, (err) => {});
+    } catch (e) {
+      console.warn('Firestore subscription setup note:', e);
+    }
+
+    return () => {
+      if (unsubscribeReports) unsubscribeReports();
+      if (unsubscribeUsers) unsubscribeUsers();
+      if (unsubscribePredictions) unsubscribePredictions();
+      if (unsubscribeAudit) unsubscribeAudit();
+    };
+  }, []);
 
   const syncWithBackendDb = async (userData) => {
     try {
@@ -112,9 +308,17 @@ export const AppProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
       });
-    } catch (e) {
-      console.warn('Backend sync note:', e);
-    }
+    } catch (e) {}
+  };
+
+  const syncReportToBackend = async (reportData) => {
+    try {
+      await fetch(`${BACKEND_URL}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reportData)
+      });
+    } catch (e) {}
   };
 
   const syncAuditLogToBackend = async (logData) => {
@@ -127,7 +331,7 @@ export const AppProvider = ({ children }) => {
     } catch (e) {}
   };
 
-  // Periodically fetch all registered users and audit logs from Backend DB
+  // Periodically fetch all registered users, audit logs, reports, and predictions from Backend DB
   const refreshUsersAndLogsFromBackend = async () => {
     try {
       const uRes = await fetch(`${BACKEND_URL}/api/users`);
@@ -145,6 +349,35 @@ export const AppProvider = ({ children }) => {
             });
             return Array.from(mergedMap.values());
           });
+
+          // Sync backend profile fields into currentUser if active
+          setCurrentUser(prev => {
+            if (!prev || !prev.email) return prev;
+            const dbUser = data.users.find(u => u.email?.toLowerCase() === prev.email?.toLowerCase());
+            if (dbUser) {
+              const merged = { ...prev, ...dbUser };
+              setStored(`profile_${prev.email.toLowerCase()}`, merged);
+              return merged;
+            }
+            return prev;
+          });
+        }
+      }
+
+      const repRes = await fetch(`${BACKEND_URL}/api/reports`);
+      if (repRes.ok) {
+        const repData = await repRes.json();
+        if (repData.reports && repData.reports.length > 0) {
+          setReports(prev => {
+            const existingIds = new Set(prev.map(r => r.report_id));
+            const newReps = repData.reports.filter(r => !existingIds.has(r.report_id)).map(r => ({
+              ...r,
+              symptoms_summary: typeof r.symptoms_summary === 'string' ? JSON.parse(r.symptoms_summary || '[]') : r.symptoms_summary,
+              recommendations: typeof r.recommendations === 'string' ? JSON.parse(r.recommendations || '[]') : r.recommendations,
+              prescriptions: typeof r.prescriptions === 'string' ? JSON.parse(r.prescriptions || '[]') : r.prescriptions
+            }));
+            return [...newReps, ...prev];
+          });
         }
       }
 
@@ -161,6 +394,119 @@ export const AppProvider = ({ children }) => {
       }
     } catch (e) {}
   };
+
+  const restoreUserReportsAndPrescriptions = async (user) => {
+    if (!user) return;
+    const lowerEmail = user.email?.toLowerCase().trim();
+    const cleanPhone = (user.contact_no || user.phone || '').replace(/[^0-9]/g, '');
+    const userName = (user.name || '').toLowerCase().trim();
+    const isSpecialRole = user.role === 'Doctor' || user.role === 'Admin';
+
+    // 1. Restore from account local storage key for instantaneous response
+    let saved = [];
+    if (lowerEmail) {
+      const eSaved = getStored(`user_reports_${lowerEmail}`, []);
+      if (eSaved && eSaved.length > 0) saved = [...saved, ...eSaved];
+    }
+    if (cleanPhone) {
+      const pSaved = getStored(`user_reports_phone_${cleanPhone}`, []);
+      if (pSaved && pSaved.length > 0) saved = [...saved, ...pSaved];
+    }
+
+    if (saved.length > 0) {
+      setReports(prev => {
+        const existingIds = new Set(prev.map(r => r.report_id));
+        const toAdd = saved.filter(r => !existingIds.has(r.report_id));
+        return [...toAdd, ...prev];
+      });
+    }
+
+    // 2. Query Cloud Firestore for all reports belonging to this patient / account
+    try {
+      const reportsCollection = collection(db, 'diagnosis_reports');
+      const snapshot = await getDocs(reportsCollection);
+      if (!snapshot.empty) {
+        const firestoreReports = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const rEmail = (data.patient_email || '').toLowerCase().trim();
+          const rPhone = (data.patient_phone || '').replace(/[^0-9]/g, '');
+          const rName = (data.patient_name || '').toLowerCase().trim();
+
+          const matchesUser = isSpecialRole ||
+            (lowerEmail && rEmail === lowerEmail) ||
+            (cleanPhone && rPhone === cleanPhone) ||
+            (data.user_id && data.user_id === user.user_id) ||
+            (userName && rName === userName);
+
+          if (matchesUser) {
+            firestoreReports.push({
+              ...data,
+              symptoms_summary: Array.isArray(data.symptoms_summary) ? data.symptoms_summary : (typeof data.symptoms_summary === 'string' ? JSON.parse(data.symptoms_summary || '[]') : []),
+              recommendations: Array.isArray(data.recommendations) ? data.recommendations : (typeof data.recommendations === 'string' ? JSON.parse(data.recommendations || '[]') : []),
+              prescriptions: Array.isArray(data.prescriptions) ? data.prescriptions : (typeof data.prescriptions === 'string' ? JSON.parse(data.prescriptions || '[]') : [])
+            });
+          }
+        });
+
+        if (firestoreReports.length > 0) {
+          setReports(prev => {
+            const mergedMap = new Map();
+            prev.forEach(r => mergedMap.set(String(r.report_id), r));
+            firestoreReports.forEach(r => mergedMap.set(String(r.report_id), r));
+            const combined = Array.from(mergedMap.values());
+            combined.sort((a, b) => new Date(b.report_date || 0) - new Date(a.report_date || 0));
+            return combined;
+          });
+
+          // Cache in local storage for this account
+          if (lowerEmail) {
+            setStored(`user_reports_${lowerEmail}`, firestoreReports);
+          }
+          if (cleanPhone) {
+            setStored(`user_reports_phone_${cleanPhone}`, firestoreReports);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Firestore restore user reports note:', e);
+    }
+
+    // 3. Query Backend DB server as additional fallback
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/reports`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reports && data.reports.length > 0) {
+          const userMatched = data.reports.filter(r =>
+            (lowerEmail && r.patient_email?.toLowerCase() === lowerEmail) ||
+            (cleanPhone && r.patient_phone?.replace(/[^0-9]/g, '') === cleanPhone) ||
+            r.user_id === user.user_id ||
+            (user.name && r.patient_name?.toLowerCase() === user.name.toLowerCase())
+          ).map(r => ({
+            ...r,
+            symptoms_summary: typeof r.symptoms_summary === 'string' ? JSON.parse(r.symptoms_summary || '[]') : r.symptoms_summary,
+            recommendations: typeof r.recommendations === 'string' ? JSON.parse(r.recommendations || '[]') : r.recommendations,
+            prescriptions: typeof r.prescriptions === 'string' ? JSON.parse(r.prescriptions || '[]') : r.prescriptions
+          }));
+
+          if (userMatched.length > 0) {
+            setReports(prev => {
+              const existingIds = new Set(prev.map(r => r.report_id));
+              const newMatches = userMatched.filter(r => !existingIds.has(r.report_id));
+              return [...newMatches, ...prev];
+            });
+          }
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      restoreUserReportsAndPrescriptions(currentUser);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     refreshUsersAndLogsFromBackend();
@@ -204,7 +550,6 @@ export const AppProvider = ({ children }) => {
         user_id: Date.now(),
         name: googleUser.displayName || googleUser.name || lowerEmail.split('@')[0],
         email: googleUser.email,
-        password: 'GoogleAuthenticated',
         contact_no: '+1 (555) 019-2834',
         role: selectedRole,
         auth_provider: 'firebase_google',
@@ -215,9 +560,11 @@ export const AppProvider = ({ children }) => {
 
       setUsers(prev => [userPayload, ...prev.filter(u => u.email?.toLowerCase() !== lowerEmail)]);
       setCurrentUser(userPayload);
+      setStored(`profile_${lowerEmail}`, userPayload);
+      await syncUserToFirestore(userPayload);
       await syncWithBackendDb(userPayload);
 
-      setLoginHistory(prev => [{
+      const auditPayload = {
         login_id: Date.now(),
         user_id: userPayload.user_id,
         user_name: userPayload.name,
@@ -226,7 +573,10 @@ export const AppProvider = ({ children }) => {
         login_time: new Date().toISOString(),
         ip_address: "127.0.0.1 (Firebase Auth)",
         device_info: "Firebase API Google Provider"
-      }, ...prev]);
+      };
+      setLoginHistory(prev => [auditPayload, ...prev]);
+      await syncAuditLogToFirestore(auditPayload);
+      await syncAuditLogToBackend(auditPayload);
 
       return { success: true, user: userPayload };
     } catch (error) {
@@ -234,141 +584,6 @@ export const AppProvider = ({ children }) => {
       return { success: false, message: error.message };
     }
   };
-
-  // Login via Firebase Auth API (Email & Password)
-  const loginUser = async (email, password) => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const fbUser = userCredential.user;
-      
-      const lowerEmail = email.toLowerCase();
-
-      // Check if user is trying to access Admin but isn't hkpatel7874@gmail.com
-      const existingUser = users.find(u => u.email?.toLowerCase() === lowerEmail) ||
-                           getStored(`profile_${lowerEmail}`, null);
-
-      if (existingUser && existingUser.role === 'Admin' && lowerEmail !== 'hkpatel7874@gmail.com') {
-        return {
-          success: false,
-          message: 'Access Denied: Only Admin is authorized to access the Admin Portal.'
-        };
-      }
-
-      const found = existingUser ? {
-        ...existingUser,
-        role: existingUser.role || 'Patient'
-      } : {
-        user_id: Date.now(),
-        name: fbUser.displayName || lowerEmail.split('@')[0],
-        email: fbUser.email,
-        role: 'Patient',
-        password
-      };
-
-
-
-      setUsers(prev => {
-        const exists = prev.some(u => u.email?.toLowerCase() === found.email?.toLowerCase());
-        return exists ? prev.map(u => u.email?.toLowerCase() === found.email?.toLowerCase() ? { ...u, ...found } : u) : [found, ...prev];
-      });
-
-      setCurrentUser(found);
-      await syncWithBackendDb(found);
-      
-      setLoginHistory(prev => [{
-        login_id: Date.now(),
-        user_id: found.user_id,
-        user_name: found.name,
-        email: found.email,
-        role: found.role,
-        login_time: new Date().toISOString(),
-        ip_address: "127.0.0.1 (Firebase Auth)",
-        device_info: "Firebase API Email/Password"
-      }, ...prev]);
-
-      return { success: true, user: found };
-    } catch (err) {
-      // Local fallback lookup
-      const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-      if (found) {
-        setUsers(prev => {
-          const exists = prev.some(u => u.email?.toLowerCase() === found.email?.toLowerCase());
-          return exists ? prev : [found, ...prev];
-        });
-        setCurrentUser(found);
-        syncWithBackendDb(found);
-
-        setLoginHistory(prev => [{
-          login_id: Date.now(),
-          user_id: found.user_id,
-          user_name: found.name,
-          email: found.email,
-          role: found.role,
-          login_time: new Date().toISOString(),
-          ip_address: "127.0.0.1 (Local Auth)",
-          device_info: "Password Authentication"
-        }, ...prev]);
-
-        return { success: true, user: found };
-      }
-      return { success: false, message: err.message || "Invalid credentials." };
-    }
-  };
-
-
-  // Register via Firebase Auth API
-  const registerUser = async (userPayload) => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, userPayload.email, userPayload.password);
-      const fbUser = userCredential.user;
-      
-      const fullUserPayload = {
-        ...userPayload,
-        user_id: Date.now(),
-        auth_provider: 'firebase_email'
-      };
-
-      setUsers(prev => [fullUserPayload, ...prev]);
-      setCurrentUser(fullUserPayload);
-      await syncWithBackendDb(fullUserPayload);
-
-      setLoginHistory(prev => [{
-        login_id: Date.now(),
-        user_id: fullUserPayload.user_id,
-        user_name: fullUserPayload.name,
-        email: fullUserPayload.email,
-        role: fullUserPayload.role,
-        login_time: new Date().toISOString(),
-        ip_address: "127.0.0.1 (Firebase Auth)",
-        device_info: "New User Account Registration"
-      }, ...prev]);
-
-      return { success: true, user: fullUserPayload };
-    } catch (err) {
-      const fullUserPayload = {
-        ...userPayload,
-        user_id: Date.now(),
-        auth_provider: 'local'
-      };
-      setUsers(prev => [fullUserPayload, ...prev]);
-      setCurrentUser(fullUserPayload);
-      await syncWithBackendDb(fullUserPayload);
-
-      setLoginHistory(prev => [{
-        login_id: Date.now(),
-        user_id: fullUserPayload.user_id,
-        user_name: fullUserPayload.name,
-        email: fullUserPayload.email,
-        role: fullUserPayload.role,
-        login_time: new Date().toISOString(),
-        ip_address: "127.0.0.1 (Local Auth)",
-        device_info: "New User Account Registration"
-      }, ...prev]);
-
-      return { success: true, user: fullUserPayload };
-    }
-  };
-
 
   // Firebase Phone Auth - Send OTP SMS API (Official Firebase Auth Docs Compliant)
   const sendPhoneOtp = (phoneNumber) => {
@@ -443,7 +658,21 @@ export const AppProvider = ({ children }) => {
 
         setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
         setCurrentUser(userPayload);
+        syncUserToFirestore(userPayload);
         syncWithBackendDb(userPayload);
+
+        const auditPayload = {
+          login_id: Date.now(),
+          user_id: userPayload.user_id,
+          user_name: userPayload.name,
+          email: userPayload.email,
+          role: userPayload.role,
+          login_time: new Date().toISOString(),
+          ip_address: "127.0.0.1 (Firebase Phone Auth)",
+          device_info: "Phone Authentication (Simulation)"
+        };
+        setLoginHistory(prev => [auditPayload, ...prev]);
+        syncAuditLogToFirestore(auditPayload);
 
         return resolve({ success: true, user: userPayload });
       }
@@ -481,9 +710,10 @@ export const AppProvider = ({ children }) => {
 
           setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
           setCurrentUser(userPayload);
+          await syncUserToFirestore(userPayload);
           await syncWithBackendDb(userPayload);
 
-          setLoginHistory(prev => [{
+          const auditPayload = {
             login_id: Date.now(),
             user_id: userPayload.user_id,
             user_name: userPayload.name,
@@ -492,7 +722,10 @@ export const AppProvider = ({ children }) => {
             login_time: new Date().toISOString(),
             ip_address: "127.0.0.1 (Firebase Phone Auth)",
             device_info: "Firebase SMS OTP Verification"
-          }, ...prev]);
+          };
+          setLoginHistory(prev => [auditPayload, ...prev]);
+          await syncAuditLogToFirestore(auditPayload);
+          await syncAuditLogToBackend(auditPayload);
 
           resolve({ success: true, user: userPayload });
         })
@@ -529,7 +762,21 @@ export const AppProvider = ({ children }) => {
 
             setUsers(prev => [userPayload, ...prev.filter(u => u.email !== userPayload.email)]);
             setCurrentUser(userPayload);
+            syncUserToFirestore(userPayload);
             syncWithBackendDb(userPayload);
+
+            const auditPayload = {
+              login_id: Date.now(),
+              user_id: userPayload.user_id,
+              user_name: userPayload.name,
+              email: userPayload.email,
+              role: userPayload.role,
+              login_time: new Date().toISOString(),
+              ip_address: "127.0.0.1 (Phone Fallback Auth)",
+              device_info: "Direct OTP Verification"
+            };
+            setLoginHistory(prev => [auditPayload, ...prev]);
+            syncAuditLogToFirestore(auditPayload);
 
             return resolve({ success: true, user: userPayload });
           }
@@ -813,6 +1060,42 @@ Respond ONLY with a JSON object in this exact structure:
   };
 
   const sendChatMessage = async (conversationMessages) => {
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const formattedTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+    const lastUserMsg = conversationMessages[conversationMessages.length - 1]?.content?.toLowerCase() || '';
+
+    // Quick instant local resolution for direct time / date queries
+    const isDirectDateQuery = /^(what('?s| is) (today'?s? date|the date today|the date|the current date|the day today|today'?s? day)|today'?s? date|current date|what date is it|what day is it|tell me today'?s? date)/i.test(lastUserMsg.trim());
+    const isDirectTimeQuery = /^(what('?s| is) (the current time|the time now|the time|current time|the time today)|current time|what time is it|tell me the time|time now)/i.test(lastUserMsg.trim());
+
+    if (isDirectDateQuery && !lastUserMsg.includes('fever') && !lastUserMsg.includes('symptom') && !lastUserMsg.includes('disease')) {
+      return {
+        success: true,
+        reply: `Today is **${formattedDate}**. 📅\n\nHow can I assist you with your health or queries today?`,
+        groqPowered: true
+      };
+    }
+
+    if (isDirectTimeQuery && !lastUserMsg.includes('fever') && !lastUserMsg.includes('symptom') && !lastUserMsg.includes('disease')) {
+      return {
+        success: true,
+        reply: `The current time is **${formattedTime}** (${timeZone}). 🕒\n\nHow can I help you today?`,
+        groqPowered: true
+      };
+    }
+
     // 1. Try Backend API endpoint first
     try {
       const response = await fetch(`${BACKEND_URL}/api/chat`, {
@@ -825,7 +1108,10 @@ Respond ONLY with a JSON object in this exact structure:
           messages: conversationMessages,
           patientContext: {
             name: currentUser?.name || 'Patient',
-            role: currentUser?.role || 'Patient'
+            role: currentUser?.role || 'Patient',
+            timezone: timeZone,
+            currentDate: formattedDate,
+            currentTime: formattedTime
           }
         })
       });
@@ -846,11 +1132,34 @@ Respond ONLY with a JSON object in this exact structure:
     const groqKey = import.meta.env.VITE_GROQ_API_KEY;
     if (groqKey) {
       try {
-        const systemPrompt = `You are SDPS Health Assistant, an empathetic, highly knowledgeable, and precise AI medical & health assistant integrated into the Smart Disease Prediction System (SDPS).
-Provide accurate, reassuring, and practical medical guidance, health recommendations, symptom explanations, diet tips, and general medical knowledge.
-Format your responses using clean GitHub-style Markdown with bullet points, bold key terms, and short paragraphs for readability.
-If a user asks about urgent or life-threatening symptoms (chest pain, stroke, severe bleeding), emphasize seeking emergency care immediately.
-Keep responses concise, informative, warm, and helpful.`;
+        const systemPrompt = `You are SDPS Health Assistant, an empathetic, highly knowledgeable, and versatile AI medical, health & general assistant integrated into the Smart Disease Prediction System (SDPS.ai).
+
+CURRENT REAL-TIME TEMPORAL CONTEXT:
+- Today's Date: ${formattedDate}
+- Current Local Time: ${formattedTime} (${timeZone})
+- Current Year: ${now.getFullYear()}
+
+PLATFORM OWNERSHIP & CREATOR INFORMATION:
+- This website and system (SDPS - Smart Disease Prediction System) was designed, created, developed, and is owned by **Harsh Patel**, a Software Engineering student and Lead Architect.
+- If any user asks about who built this website, who created SDPS, who owns this platform, or who Harsh Patel is, always state clearly that **Harsh Patel** is the sole creator, owner, and lead developer of SDPS.ai.
+
+GENERAL & CONVERSATIONAL QUESTIONS:
+- You ARE fully capable of answering everyday questions, date and time inquiries, general knowledge, greetings, and health/medical guidance accurately and immediately.
+- If the user asks "what is today's date?", "what time is it?", "what day is it today?", greetings, or general knowledge, answer them directly, accurately, and pleasantly using the real-time context provided above.
+- NEVER state "I don't have access to real-time information" or "I cannot tell time" because the exact real-time date and time are provided above in your context.
+
+STRICT KEYWORD BOLDING & FORMATTING GUIDELINES:
+1. **Highlight Essential Keywords Only**: Use markdown bolding (**keyword**) ONLY for high-priority clinical and medical keywords:
+   - Primary Disease / Condition names (e.g., **Dengue Fever**, **Type 2 Diabetes**, **Hypertension**, **Migraine**)
+   - Key Symptoms (e.g., **High-grade fever (102°F+)**, **Shortness of breath**, **Chest tightness**)
+   - Core Medications, Doses, and Clinical solutions (e.g., **Paracetamol (500mg)**, **Oral Rehydration Salts (ORS)**, **Saline nasal spray**)
+   - Critical Warning Indicators / Red Flags (e.g., **Emergency Warning Signs**, **Immediate Medical Attention**)
+   - Section Titles / Labels (e.g., **Key Action Steps:**, **Dietary Advice:**, **When to consult a Doctor:**)
+   - Real-time Specifics & Creator: **${formattedDate}**, **${formattedTime}**, **Harsh Patel**
+2. **DO NOT Bold Generic Everyday Words**: Never bold conversational filler words, pronouns, or arbitrary verbs/adjectives such as: "**you should**", "**it is**", "**very**", "**important**", "**make sure**", "**take**", "**drink**", "**food**", "**well**", "**also**", "**can be**", "**daily**", "**help**", etc.
+3. Structure responses cleanly using bullet points (- or •), numbered lists (1., 2.), and concise paragraphs so patients and doctors can scan key insights effortlessly.
+4. If a user describes life-threatening emergency symptoms (such as acute chest pain, stroke symptoms, respiratory distress, severe bleeding), clearly state **Seek Immediate Emergency Care** and direct them to local emergency services.
+5. Keep responses concise, warm, helpful, and clinically sound.`;
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
@@ -883,18 +1192,31 @@ Keep responses concise, informative, warm, and helpful.`;
       }
     }
 
-    // 3. Offline static advice fallback
-    const lastUserMsg = conversationMessages[conversationMessages.length - 1]?.content?.toLowerCase() || '';
-    let fallbackReply = "I am currently operating in offline fallback mode. Connect to the SDPS backend server for live Groq AI answers.";
+    // 3. Offline dynamic fallback
+    let fallbackReply = `I am currently operating in offline mode. The current date is **${formattedDate}** and time is **${formattedTime}** (${timeZone}). Connect to the SDPS backend server for live Groq AI answers.`;
     
-    if (lastUserMsg.includes('fever') || lastUserMsg.includes('temperature')) {
-      fallbackReply = "**Offline Health Advice (Fever):** Stay well-hydrated with fluids/ORS, rest adequately, and monitor your body temperature. If temperature exceeds 102°F or persists beyond 3 days, please consult a physician.";
+    if (lastUserMsg.includes('date') || lastUserMsg.includes('day') || lastUserMsg.includes('today')) {
+      fallbackReply = `Today is **${formattedDate}**. 📅\n\nHow can I help you with your health or queries today?`;
+    } else if (lastUserMsg.includes('time') || lastUserMsg.includes('clock')) {
+      fallbackReply = `The current time is **${formattedTime}** (${timeZone}). 🕒\n\nHow can I help you today?`;
+    } else if (lastUserMsg.includes('who are you') || lastUserMsg.includes('what is sdps') || lastUserMsg.includes('what are you')) {
+      fallbackReply = `I am **SDPS Health Assistant**, an intelligent AI medical and wellness assistant for the Smart Disease Prediction System, created and developed by **Harsh Patel**.`;
+    } else if (lastUserMsg.includes('hello') || lastUserMsg.includes('hi') || lastUserMsg.includes('hey')) {
+      fallbackReply = `Hello **${currentUser?.name || 'there'}**! 👋 How can I assist you with your health, symptoms, or queries today?`;
+    } else if (lastUserMsg.includes('weight') || lastUserMsg.includes('fat') || lastUserMsg.includes('calories') || lastUserMsg.includes('slim')) {
+      fallbackReply = `### **Healthy Weight Loss & Wellness Guide**\n\n- **Caloric Deficit**: Focus on a sustainable 300–500 calorie daily deficit with nutrient-dense whole foods.\n- **High Protein & Fiber**: Prioritize lean proteins (lentils, paneer, chicken, tofu) and high-fiber vegetables to stay satiated.\n- **Daily Physical Activity**: Aim for **30–45 minutes** of brisk walking, cycling, or resistance training 5 days a week.\n- **Hydration**: Drink **2.5 to 3 liters** of water daily and avoid sugary beverages.\n- **Consistent Sleep**: Maintain **7–8 hours of quality sleep** to regulate hunger hormones (Ghrelin & Leptin).`;
+    } else if (lastUserMsg.includes('sleep') || lastUserMsg.includes('insomnia')) {
+      fallbackReply = `### **Tips for Better Sleep Quality**\n\n- **Sleep Schedule**: Go to bed and wake up at the same time daily.\n- **Digital Curfew**: Avoid screens and blue light at least **45 minutes before bedtime**.\n- **Optimize Environment**: Keep your bedroom cool, quiet, and dark.\n- **Avoid Stimulants**: Limit caffeine and heavy meals after 5:00 PM.`;
+    } else if (lastUserMsg.includes('stress') || lastUserMsg.includes('anxiety')) {
+      fallbackReply = `### **Stress Management Techniques**\n\n- **Deep Breathing**: Practice the 4-7-8 breathing method or box breathing.\n- **Mindfulness**: Spend 10 minutes meditating or taking a calm nature walk.\n- **Physical Movement**: Moderate exercise releases natural endorphins that elevate mood.`;
+    } else if (lastUserMsg.includes('fever') || lastUserMsg.includes('temperature')) {
+      fallbackReply = "**Health Advice (Fever):** Stay well-hydrated with fluids/ORS, rest adequately, and monitor your body temperature. If temperature exceeds 102°F or persists beyond 3 days, please consult a physician.";
     } else if (lastUserMsg.includes('cough') || lastUserMsg.includes('throat')) {
-      fallbackReply = "**Offline Health Advice (Cough & Throat):** Sip warm water or herbal tea, practice salt-water gargles, and avoid cold air exposure. If chest pain or breathing difficulty occurs, seek medical evaluation.";
+      fallbackReply = "**Health Advice (Cough & Throat):** Sip warm water or herbal tea, practice salt-water gargles, and avoid cold air exposure. If chest pain or breathing difficulty occurs, seek medical evaluation.";
     } else if (lastUserMsg.includes('headache') || lastUserMsg.includes('pain')) {
-      fallbackReply = "**Offline Health Advice (Headache):** Rest in a dim, quiet room, stay hydrated, and reduce screen time. Seek urgent care if accompanied by neck stiffness or vision loss.";
+      fallbackReply = "**Health Advice (Headache):** Rest in a dim, quiet room, stay hydrated, and reduce screen time. Seek urgent care if accompanied by neck stiffness or vision loss.";
     } else if (lastUserMsg.includes('diet') || lastUserMsg.includes('eat') || lastUserMsg.includes('food')) {
-      fallbackReply = "**Offline Health Advice (Nutrition):** Maintain a balanced diet rich in leafy greens, fresh fruits, lean proteins, and plenty of water. Avoid processed sugars and deep-fried foods during illness.";
+      fallbackReply = "**Health Advice (Nutrition):** Maintain a balanced diet rich in leafy greens, fresh fruits, lean proteins, and plenty of water. Avoid processed sugars and deep-fried foods during illness.";
     }
 
     return {
@@ -960,6 +1282,7 @@ Keep responses concise, informative, warm, and helpful.`;
       notes: `Automated ML decision matrix evaluated ${selectedSymptomIds.length} input symptoms.`
     };
     setPredictions(prev => [newPredictionEntry, ...prev]);
+    syncPredictionToFirestore(newPredictionEntry);
     return { primary: topPrediction, differentials: results.slice(1, 4), predictionEntry: newPredictionEntry };
   };
 
@@ -998,6 +1321,8 @@ Keep responses concise, informative, warm, and helpful.`;
       prediction_id: predictionEntry.prediction_id,
       user_id: currentUser ? currentUser.user_id : 2,
       patient_name: currentUser ? currentUser.name : 'Patient',
+      patient_email: currentUser?.email || '',
+      patient_phone: currentUser?.contact_no || currentUser?.phone || '',
       patient_age: currentUser?.age || null,
       patient_gender: currentUser?.gender || null,
       report_date: new Date().toISOString(),
@@ -1020,14 +1345,49 @@ Keep responses concise, informative, warm, and helpful.`;
     };
 
     setReports(prev => [newReport, ...prev]);
+
+    // Save to account-specific local storage keys so logging in with same account retains all prescriptions
+    if (currentUser?.email) {
+      const userKey = `user_reports_${currentUser.email.toLowerCase()}`;
+      const existing = getStored(userKey, []);
+      setStored(userKey, [newReport, ...existing.filter(r => r.report_id !== newReport.report_id)]);
+    }
+    if (currentUser?.contact_no || currentUser?.phone) {
+      const p = (currentUser.contact_no || currentUser.phone).replace(/[^0-9]/g, '');
+      if (p) {
+        const phoneKey = `user_reports_phone_${p}`;
+        const existing = getStored(phoneKey, []);
+        setStored(phoneKey, [newReport, ...existing.filter(r => r.report_id !== newReport.report_id)]);
+      }
+    }
+
+    syncReportToFirestore(newReport);
+    syncReportToBackend(newReport);
     return newReport;
   };
 
-  const deleteReport = (report_id) => {
+  const deleteReport = async (report_id) => {
     setReports(prev => prev.filter(r => r.report_id !== report_id));
+    if (currentUser?.email) {
+      const userKey = `user_reports_${currentUser.email.toLowerCase()}`;
+      const existing = getStored(userKey, []);
+      setStored(userKey, existing.filter(r => r.report_id !== report_id));
+    }
+    if (currentUser?.contact_no || currentUser?.phone) {
+      const p = (currentUser.contact_no || currentUser.phone).replace(/[^0-9]/g, '');
+      if (p) {
+        const phoneKey = `user_reports_phone_${p}`;
+        const existing = getStored(phoneKey, []);
+        setStored(phoneKey, existing.filter(r => r.report_id !== report_id));
+      }
+    }
+    deleteReportFromFirestore(report_id);
+    try {
+      await fetch(`${BACKEND_URL}/api/reports/${report_id}`, { method: 'DELETE' });
+    } catch (e) {}
   };
 
-  const updateUserProfile = (profileData) => {
+  const updateUserProfile = async (profileData) => {
     const updatedUser = { ...currentUser, ...profileData };
     setCurrentUser(updatedUser);
     if (updatedUser.email) {
@@ -1044,6 +1404,7 @@ Keep responses concise, informative, warm, and helpful.`;
       }
       return [updatedUser, ...prev];
     });
+    await syncUserToFirestore(updatedUser);
     syncWithBackendDb(updatedUser);
   };
 
@@ -1125,7 +1486,6 @@ Keep responses concise, informative, warm, and helpful.`;
       predictions,
       reports,
       loginHistory,
-      loginUser,
       loginWithGoogle,
       sendPhoneOtp,
       verifyPhoneOtp,

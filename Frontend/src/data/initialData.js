@@ -3,7 +3,6 @@ export const INITIAL_USERS = [
     user_id: 1,
     name: "Harsh Patel (System Administrator)",
     email: "hkpatel7874@gmail.com",
-    password: "Password123!",
     contact_no: "+91 98765 43210",
     role: "Admin",
     created_at: "2026-01-15T09:00:00Z"
@@ -12,7 +11,6 @@ export const INITIAL_USERS = [
     user_id: 2,
     name: "Ananya Patel",
     email: "ananya.patient@example.com",
-    password: "Password123!",
     contact_no: "+91 98123 45678",
     role: "Patient",
     created_at: "2026-02-10T14:30:00Z"
@@ -21,7 +19,6 @@ export const INITIAL_USERS = [
     user_id: 3,
     name: "Rohan Verma",
     email: "rohan.patient@example.com",
-    password: "Password123!",
     contact_no: "+91 97654 32109",
     role: "Patient",
     created_at: "2026-03-01T11:20:00Z"
@@ -30,7 +27,6 @@ export const INITIAL_USERS = [
     user_id: 4,
     name: "Dr. Vikram Seth (Chief Cardiologist)",
     email: "doctor@sdps.health",
-    password: "Password123!",
     contact_no: "+91 99887 76655",
     role: "Doctor",
     created_at: "2026-01-20T10:15:00Z"

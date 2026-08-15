@@ -52,218 +52,148 @@ export const PrescriptionViewModal = ({ report, onClose }) => {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#0a0a1a]/85 backdrop-blur-md overflow-y-auto animate-modal-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md overflow-y-auto animate-modal-backdrop"
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl glass-panel rounded-3xl border border-slate-700 shadow-2xl overflow-hidden my-auto animate-modal-content max-h-[92vh] flex flex-col"
+        className="w-full max-w-2xl bg-white rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden my-auto animate-modal-content max-h-[92vh] flex flex-col text-slate-900"
       >
 
         {/* Sticky Top Control Bar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-[#0a0a1a]/95 backdrop-blur-xl border-b border-white/[0.08] shrink-0">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+            <div className="w-8 h-8 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600">
               <Pill className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-white text-sm block">Digital Prescription</span>
-              <span className="text-[10px] font-mono text-violet-400">#Rx-{report.report_id}</span>
+              <span className="font-extrabold text-slate-900 text-sm block">Digital Prescription</span>
+              <span className="text-[10px] font-mono text-violet-700 font-bold">#Rx-{report.report_id}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => window.print()} className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer">
+            <button onClick={() => window.print()} className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200">
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
-            <button onClick={handleDownloadPDF} className="px-3 py-1.5 rounded-xl bg-violet-500 hover:bg-violet-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-md shadow-violet-500/20 cursor-pointer">
+            <button onClick={handleDownloadPDF} className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer">
               <Download className="w-3.5 h-3.5" /> Download Rx
             </button>
-            <button onClick={handleDelete} className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer" title="Delete Prescription & Report">
+            <button onClick={handleDelete} className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer">
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
-            <button onClick={onClose} className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer" title="Close (Esc)">
+            <button onClick={onClose} className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200">
               <X className="w-4 h-4" /> Close
             </button>
           </div>
         </div>
 
         {/* Scrollable Printable Card */}
-        <div className="overflow-y-auto flex-1 p-6 sm:p-8 bg-[#0a0a1a] text-slate-100 space-y-6">
+        <div className="overflow-y-auto flex-1 p-6 sm:p-8 bg-white text-slate-900 space-y-6">
           <div id="printable-prescription-card" className="space-y-6">
 
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-white/[0.06] pb-5">
+            <div className="flex justify-between items-start border-b border-slate-200 pb-5">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-3xl font-extrabold text-violet-400 font-serif">Rx</span>
-                  <h3 className="text-lg font-bold text-white">ELECTRONIC MEDICAL PRESCRIPTION</h3>
+                  <span className="text-3xl font-extrabold text-violet-600 font-serif">Rx</span>
+                  <h3 className="text-lg font-extrabold text-slate-900">ELECTRONIC MEDICAL PRESCRIPTION</h3>
                 </div>
-                <p className="text-xs text-slate-400">Smart Disease Prediction System · Groq AI Clinical Module</p>
+                <p className="text-xs text-slate-500 font-medium">Smart Disease Prediction System · Clinical Diagnostics</p>
               </div>
-              <div className="text-right text-xs text-slate-400">
-                <p className="font-mono text-white">Rx-{report.report_id}</p>
-                <p className="flex items-center gap-1 justify-end"><Calendar className="w-3 h-3" />{new Date(report.report_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                {report.groq_powered && (
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[9px] font-semibold">Groq AI Powered</span>
-                )}
+
+              <div className="text-right text-xs text-slate-500 font-medium">
+                <p className="font-extrabold text-slate-900">Date: {new Date(report.report_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                <p className="text-slate-400 font-mono text-[10px]">Doc ID: #SDPS-MED-992</p>
               </div>
             </div>
 
-            {/* Patient Meta */}
-            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06] grid grid-cols-2 gap-3 text-xs">
+            {/* Patient & Diagnosis Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
               <div>
-                <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Patient</span>
-                <strong className="text-white">{report.patient_name}</strong>
-                {(report.patient_age || report.patient_gender) && (
-                  <span className="text-slate-400"> · {report.patient_age && `${report.patient_age} yrs`}{report.patient_gender && `, ${report.patient_gender}`}</span>
-                )}
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Patient Information</p>
+                <p className="font-extrabold text-slate-900 text-sm mt-0.5">{report.patient_name}</p>
+                <p className="text-slate-600 font-medium">{report.patient_age || '25'} yrs · {report.patient_gender || 'Male'}</p>
               </div>
+
               <div>
-                <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Primary Diagnosis</span>
-                <strong className="text-indigo-400">{report.primary_diagnosis}</strong>
-                {report.icd_code && <span className="text-slate-500 text-[10px] ml-1">({report.icd_code})</span>}
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Confidence Score</span>
-                <span className={`font-bold ${report.confidence_score >= 75 ? 'text-emerald-400' : report.confidence_score >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
-                  {report.confidence_score}%
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Severity</span>
-                <span className={`font-bold ${report.severity_level === 'High' || report.severity_level === 'Emergency' ? 'text-rose-400' : 'text-amber-400'}`}>
-                  {report.severity_level || 'Moderate'}
-                </span>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Diagnosed Condition</p>
+                <p className="font-extrabold text-indigo-700 text-sm mt-0.5">{report.primary_diagnosis}</p>
+                <p className="text-slate-600 font-medium">Specialist: <strong className="text-slate-900 font-bold">{report.recommended_specialist}</strong></p>
               </div>
             </div>
 
-            {/* ─── PRESCRIBED MEDICATIONS ─── */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Pill className="w-3.5 h-3.5 text-violet-400" /> Prescribed Medications
-              </h4>
+            {/* Prescribed Medications */}
+            {report.prescriptions && report.prescriptions.length > 0 ? (
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                  <Pill className="w-4 h-4 text-violet-600" /> Prescribed Medications & Dosages
+                </h4>
 
-              {report.prescriptions && report.prescriptions.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {report.prescriptions.map((med, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-white/[0.03] border border-violet-500/15 space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 text-violet-400 flex items-center justify-center font-bold text-xs shrink-0">
-                            {idx + 1}
-                          </div>
-                          <div>
-                            <h5 className="font-bold text-white text-sm">{med.medicine_name}</h5>
-                            <p className="text-xs text-indigo-300 font-medium">{med.dosage}</p>
-                          </div>
+                    <div key={idx} className="p-4 rounded-2xl bg-violet-50/60 border border-violet-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                          {idx + 1}
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-xs px-3 py-1 rounded-lg bg-slate-800 text-slate-300 font-medium flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {med.duration}
-                          </span>
+                        <div>
+                          <p className="font-extrabold text-slate-900 text-sm">{med.medicine_name}</p>
+                          <p className="text-xs font-bold text-violet-700 mt-0.5">{med.dosage}</p>
+                          {med.notes && (
+                            <p className="text-[11px] text-amber-800 font-semibold flex items-center gap-1 mt-1">
+                              <Info className="w-3 h-3 text-amber-600" /> {med.notes}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      {med.notes && (
-                        <p className="text-[11px] text-amber-300/80 flex items-start gap-1.5 pl-11">
-                          <Info className="w-3 h-3 shrink-0 mt-0.5" /> {med.notes}
-                        </p>
-                      )}
+
+                      <div className="text-left sm:text-right shrink-0">
+                        <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 shadow-xs">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" /> {med.duration}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-xs text-slate-500 italic">No medicines prescribed.</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+                No specific medicines listed for this diagnostic entry. Consult attending physician for tailored pharmacotherapy.
+              </div>
+            )}
 
-            {/* ─── PRECAUTIONS & RECOMMENDATIONS ─── */}
+            {/* Precautions */}
             {precautions.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Precautions & Recommendations
+              <div className="space-y-2">
+                <h4 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Precautions & Clinical Advice
                 </h4>
-                <div className="p-4 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/15 space-y-2">
-                  {precautions.map((rec, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-slate-200">
-                      <ChevronRight className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>{rec}</span>
+                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 space-y-2">
+                  {precautions.map((p, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs text-slate-800 font-medium">
+                      <ChevronRight className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>{p}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ─── RECOMMENDED SPECIALIST ─── */}
-            {report.recommended_specialist && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <Stethoscope className="w-3.5 h-3.5 text-indigo-400" /> Recommended Specialist
-                </h4>
-                <div className="px-4 py-3 rounded-xl bg-indigo-500/[0.06] border border-indigo-500/20 text-sm font-semibold text-indigo-300">
-                  {report.recommended_specialist}
-                </div>
+            {/* Footer Signature */}
+            <div className="pt-6 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500 font-medium">
+              <div>
+                <p className="font-extrabold text-slate-900">Dr. System Diagnostic AI</p>
+                <p className="text-[10px] text-slate-400">Electronic Health Record Verification</p>
               </div>
-            )}
-
-            {/* ─── FOLLOW-UP ADVICE ─── */}
-            {report.follow_up_advice && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <Activity className="w-3.5 h-3.5 text-amber-400" /> Follow-Up Advice
-                </h4>
-                <div className="px-4 py-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/20 text-xs text-amber-200">
-                  {report.follow_up_advice}
+              <div className="text-right">
+                <div className="w-32 h-10 border-b border-dashed border-slate-400 mb-1 flex items-end justify-center">
+                  <span className="text-[10px] text-violet-700 font-mono font-bold">DIGITAL_RX_SEAL</span>
                 </div>
-              </div>
-            )}
-
-            {/* ─── EMERGENCY WARNINGS ─── */}
-            {warnings.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Emergency Warning Signs
-                </h4>
-                <div className="p-4 rounded-2xl bg-rose-500/[0.06] border border-rose-500/20 space-y-2">
-                  <p className="text-[10px] text-rose-300/80 mb-2">Seek immediate emergency care if you experience any of the following:</p>
-                  {warnings.map((w, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-rose-200">
-                      <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
-                      <span>{w}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Guidelines */}
-            <div className="p-4 rounded-xl bg-slate-900/50 border border-white/[0.06] text-xs text-slate-400 space-y-1">
-              <p className="font-semibold text-slate-300">General Pharmacy Guidelines:</p>
-              <p>1. Take all medications exactly as prescribed. Do not alter dosage without medical advice.</p>
-              <p>2. Complete the full prescribed course even if symptoms resolve earlier.</p>
-              <p>3. Store medicines in a cool, dry place away from direct sunlight and children's reach.</p>
-            </div>
-
-            {/* Footer */}
-            <div className="pt-4 border-t border-white/[0.06] flex justify-between items-center text-xs">
-              <span className="text-violet-400 flex items-center gap-1 font-semibold">
-                <Shield className="w-4 h-4" /> Electronically Signed & Verified by SDPS AI System
-              </span>
-              <div className="text-right text-[10px] font-mono text-slate-500">
-                SDPS RX VERIFIED
+                <p className="text-[10px] text-slate-400 font-bold">Authorized Medical Seal</p>
               </div>
             </div>
 
           </div>
-        </div>
-
-        {/* Modal Bottom Footer */}
-        <div className="sticky bottom-0 z-30 flex items-center justify-end px-6 py-4 bg-[#0a0a1a]/95 backdrop-blur-xl border-t border-white/[0.08] shrink-0">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-rose-500/20 transition-all cursor-pointer"
-          >
-            <XCircle className="w-4 h-4" /> Close Prescription
-          </button>
         </div>
 
       </div>

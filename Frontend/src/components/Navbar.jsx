@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Stethoscope,
@@ -10,29 +10,11 @@ import {
   LogOut,
   Sparkles,
   ChevronDown,
-  Lock,
   Layers
 } from 'lucide-react';
 
 export const Navbar = () => {
-  const { currentUser, activeTab, setActiveTab, switchRole, logoutUser, loginUser } = useApp();
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const res = loginUser(loginEmail, loginPassword);
-    if (res.success) {
-      setShowLoginModal(false);
-      setLoginEmail('');
-      setLoginPassword('');
-      setLoginError('');
-    } else {
-      setLoginError(res.message);
-    }
-  };
+  const { currentUser, activeTab, setActiveTab, switchRole, logoutUser } = useApp();
 
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-white/[0.06] bg-[#0a0a1a]/80 backdrop-blur-xl">
@@ -55,15 +37,15 @@ export const Navbar = () => {
                   SDPS<span className="text-indigo-400">.ai</span>
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
-                  v2.4 SRS
+                  v2.4 AI
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium">Smart Disease Prediction System</p>
+              <p className="text-[10px] text-slate-400 font-mono tracking-wider">SMART DISEASE PREDICTION</p>
             </div>
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-900/60 p-1.5 rounded-2xl border border-white/[0.06]">
+          <nav className="hidden md:flex items-center gap-1 bg-white/[0.03] p-1.5 rounded-2xl border border-white/[0.06]">
             <button
               onClick={() => setActiveTab('hero')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -72,7 +54,7 @@ export const Navbar = () => {
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
-              <Sparkles className="w-4 h-4" />
+              <Activity className="w-4 h-4" />
               Overview
             </button>
 
@@ -85,7 +67,7 @@ export const Navbar = () => {
               }`}
             >
               <Stethoscope className="w-4 h-4" />
-              AI Symptom Checker
+              Symptom Checker
             </button>
 
             <button
@@ -111,18 +93,6 @@ export const Navbar = () => {
               <ShieldCheck className="w-4 h-4" />
               Admin Portal
             </button>
-
-            <button
-              onClick={() => setActiveTab('srs')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'srs'
-                  ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/20 font-semibold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Layers className="w-4 h-4 text-violet-400" />
-              SRS Architecture
-            </button>
           </nav>
 
           {/* Quick Role Switcher & User Profile */}
@@ -147,7 +117,7 @@ export const Navbar = () => {
               ))}
             </div>
 
-            {/* Profile Avatar & Login Modal Trigger */}
+            {/* Profile Avatar & Login Trigger */}
             {currentUser ? (
               <div className="flex items-center gap-2 bg-white/[0.03] pl-3 pr-2 py-1.5 rounded-xl border border-white/[0.06]">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-400 text-slate-950 flex items-center justify-center font-bold text-sm">
@@ -160,17 +130,17 @@ export const Navbar = () => {
                 <button
                   onClick={logoutUser}
                   title="Logout Session"
-                  className="ml-1 p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
+                  className="ml-1 p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
             ) : (
               <button
-                onClick={() => setShowLoginModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 text-slate-950 font-semibold text-sm hover:bg-indigo-400 transition-all shadow-md shadow-indigo-500/20"
+                onClick={logoutUser}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 text-slate-950 font-semibold text-sm hover:bg-indigo-400 transition-all shadow-md shadow-indigo-500/20 cursor-pointer"
               >
-                <Lock className="w-4 h-4" /> Sign In
+                <LogOut className="w-4 h-4" /> Sign In
               </button>
             )}
           </div>
@@ -183,75 +153,7 @@ export const Navbar = () => {
         <button onClick={() => setActiveTab('checker')} className={`p-2 ${activeTab === 'checker' ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>Checker</button>
         <button onClick={() => setActiveTab('history')} className={`p-2 ${activeTab === 'history' ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>Reports</button>
         <button onClick={() => setActiveTab('admin')} className={`p-2 ${activeTab === 'admin' ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>Admin</button>
-        <button onClick={() => setActiveTab('srs')} className={`p-2 ${activeTab === 'srs' ? 'text-indigo-400 font-bold' : 'text-slate-400'}`}>SRS</button>
       </div>
-
-      {/* Login Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0a0a1a]/80 backdrop-blur-md">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-white/[0.06] shadow-2xl relative">
-            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-              <Lock className="w-5 h-5 text-indigo-400" /> SDPS User Authentication
-            </h3>
-            <p className="text-xs text-slate-400 mb-6">Enter registered user credentials from SRS database.</p>
-
-            {loginError && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
-                {loginError}
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="admin@sdps.health or ananya.patient@example.com"
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-400"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="Password123!"
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-400"
-                  required
-                />
-              </div>
-
-              <div className="p-3 bg-slate-900/50 rounded-xl border border-white/[0.06] text-[11px] text-slate-400 space-y-1">
-                <p className="font-semibold text-indigo-400">Demo Accounts (Password: Password123!):</p>
-                <p>• Admin: <code className="text-white">admin@sdps.health</code></p>
-                <p>• Patient: <code className="text-white">ananya.patient@example.com</code></p>
-                <p>• Doctor: <code className="text-white">doctor@sdps.health</code></p>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowLoginModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-slate-950 font-bold text-xs hover:opacity-90 transition-opacity shadow-md shadow-indigo-500/20"
-                >
-                  Login to System
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
