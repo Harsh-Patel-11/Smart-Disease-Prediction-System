@@ -28,7 +28,18 @@ import {
 } from '../firebase/config';
 
 const AppContext = createContext();
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://empty-banks-make.loca.lt';
+
+const isLocalEnvironment = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === '0.0.0.0'
+);
+
+const rawBackend = import.meta.env.VITE_BACKEND_URL || '';
+const isLocalBackend = rawBackend.includes('localhost') || rawBackend.includes('127.0.0.1');
+
+// In production (e.g. *.web.app), never probe localhost to eliminate the Chromium "Access other apps and services on this device" Private Network Access prompt
+const BACKEND_URL = (isLocalEnvironment || (!isLocalBackend && rawBackend.startsWith('https://'))) ? rawBackend : '';
 
 export const AppProvider = ({ children }) => {
   const getStored = (key, fallback) => {
@@ -302,6 +313,7 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const syncWithBackendDb = async (userData) => {
+    if (!BACKEND_URL) return;
     try {
       await fetch(`${BACKEND_URL}/api/users/sync`, {
         method: 'POST',
@@ -312,6 +324,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const syncReportToBackend = async (reportData) => {
+    if (!BACKEND_URL) return;
     try {
       await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'POST',
@@ -322,6 +335,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const syncAuditLogToBackend = async (logData) => {
+    if (!BACKEND_URL) return;
     try {
       await fetch(`${BACKEND_URL}/api/audit-logs`, {
         method: 'POST',
@@ -333,6 +347,7 @@ export const AppProvider = ({ children }) => {
 
   // Periodically fetch all registered users, audit logs, reports, and predictions from Backend DB
   const refreshUsersAndLogsFromBackend = async () => {
+    if (!BACKEND_URL) return;
     try {
       const uRes = await fetch(`${BACKEND_URL}/api/users`);
       if (uRes.ok) {
@@ -472,34 +487,36 @@ export const AppProvider = ({ children }) => {
       console.warn('Firestore restore user reports note:', e);
     }
 
-    // 3. Query Backend DB server as additional fallback
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/reports`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.reports && data.reports.length > 0) {
-          const userMatched = data.reports.filter(r =>
-            (lowerEmail && r.patient_email?.toLowerCase() === lowerEmail) ||
-            (cleanPhone && r.patient_phone?.replace(/[^0-9]/g, '') === cleanPhone) ||
-            r.user_id === user.user_id ||
-            (user.name && r.patient_name?.toLowerCase() === user.name.toLowerCase())
-          ).map(r => ({
-            ...r,
-            symptoms_summary: typeof r.symptoms_summary === 'string' ? JSON.parse(r.symptoms_summary || '[]') : r.symptoms_summary,
-            recommendations: typeof r.recommendations === 'string' ? JSON.parse(r.recommendations || '[]') : r.recommendations,
-            prescriptions: typeof r.prescriptions === 'string' ? JSON.parse(r.prescriptions || '[]') : r.prescriptions
-          }));
+    // 3. Query Backend DB server as additional fallback (if configured)
+    if (BACKEND_URL) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/reports`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.reports && data.reports.length > 0) {
+            const userMatched = data.reports.filter(r =>
+              (lowerEmail && r.patient_email?.toLowerCase() === lowerEmail) ||
+              (cleanPhone && r.patient_phone?.replace(/[^0-9]/g, '') === cleanPhone) ||
+              r.user_id === user.user_id ||
+              (user.name && r.patient_name?.toLowerCase() === user.name.toLowerCase())
+            ).map(r => ({
+              ...r,
+              symptoms_summary: typeof r.symptoms_summary === 'string' ? JSON.parse(r.symptoms_summary || '[]') : r.symptoms_summary,
+              recommendations: typeof r.recommendations === 'string' ? JSON.parse(r.recommendations || '[]') : r.recommendations,
+              prescriptions: typeof r.prescriptions === 'string' ? JSON.parse(r.prescriptions || '[]') : r.prescriptions
+            }));
 
-          if (userMatched.length > 0) {
-            setReports(prev => {
-              const existingIds = new Set(prev.map(r => r.report_id));
-              const newMatches = userMatched.filter(r => !existingIds.has(r.report_id));
-              return [...newMatches, ...prev];
-            });
+            if (userMatched.length > 0) {
+              setReports(prev => {
+                const existingIds = new Set(prev.map(r => r.report_id));
+                const newMatches = userMatched.filter(r => !existingIds.has(r.report_id));
+                return [...newMatches, ...prev];
+              });
+            }
           }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
   };
 
   useEffect(() => {
